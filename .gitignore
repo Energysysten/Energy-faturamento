@@ -1,0 +1,11 @@
+faturamento.db
+credentials.json
+token_envio.json
+Controle_Medicoes.xlsx
+Modelo_Medicoes.xlsx
+__pycache__/
+*.pyc
+.env
+/tmp/
+cloudflared.log
+*.log
