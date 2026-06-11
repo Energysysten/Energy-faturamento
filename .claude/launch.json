@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "Dashboard Faturamento (Flask)",
+      "runtimeExecutable": "/Users/leonardocarmo/Library/Python/3.9/bin/flask",
+      "runtimeArgs": ["--app", "app", "run", "--host", "0.0.0.0"],
+      "port": 8080,
+      "autoPort": true
+    }
+  ]
+}

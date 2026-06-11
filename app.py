@@ -125,6 +125,28 @@ def init_db():
                 created_at TEXT
             );
         """)
+        # Carregar dados históricos do seed se o banco estiver vazio
+        if not conn.execute("SELECT 1 FROM medicoes LIMIT 1").fetchone():
+            seed_path = Path(os.environ.get("FAT_BASE", Path(__file__).parent)) / "seed_data.json"
+            if seed_path.exists():
+                import json as _json
+                with open(seed_path, encoding="utf-8") as _f:
+                    _seed = _json.load(_f)
+                for table, rows in _seed.items():
+                    if not rows:
+                        continue
+                    cols = list(rows[0].keys())
+                    placeholders = ",".join(["?"] * len(cols))
+                    col_names = ",".join(cols)
+                    for row in rows:
+                        try:
+                            conn.execute(
+                                f"INSERT OR IGNORE INTO {table}({col_names}) VALUES({placeholders})",
+                                [row.get(c) for c in cols]
+                            )
+                        except Exception:
+                            pass
+
         # Seed usuários padrão se a tabela estiver vazia
         now = datetime.now().isoformat()
         if not conn.execute("SELECT 1 FROM usuarios LIMIT 1").fetchone():
