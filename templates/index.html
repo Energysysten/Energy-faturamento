@@ -1309,11 +1309,13 @@ async function load(){
     saldos={};
     ctrs.forEach(c=>saldos[c.num]=c);
     populateGestores();
-    // Definir competência padrão: mês atual
+    // Definir competência padrão: mês atual se existir, senão o mais recente com dados
     const hoje=new Date();
     const mesAtual=`${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}`;
     const temMesAtual=data.some(i=>i.comp===mesAtual);
-    if(temMesAtual) document.getElementById('sel-comp').value=mesAtual;
+    const compsComDados=[...new Set(data.map(i=>i.comp).filter(Boolean))].sort();
+    const compPadrao=temMesAtual?mesAtual:(compsComDados[compsComDados.length-1]||mesAtual);
+    document.getElementById('sel-comp').value=compPadrao;
     applyFilters();
     // Carregar folhas em paralelo para ter dados no dashboard
     loadFolhas();
