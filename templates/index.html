@@ -2507,7 +2507,7 @@ async function iniciarImport(event){
   document.getElementById('overlay-import').classList.add('open');
   const fd=new FormData();fd.append('arquivo',savedFile);
   try{
-    const r=await fetch('/api/importar/preview',{method:'POST',body:fd});
+    const r=await fetch(location.origin+'/api/importar/preview',{method:'POST',body:fd});
     if(r.redirected&&r.url.includes('/login')){document.getElementById('import-body').innerHTML='<p style="color:#A32D2D">Sessão expirada.</p>';return;}
     if(!r.ok){const txt=await r.text();document.getElementById('import-body').innerHTML=`<p style="color:#A32D2D">Erro (${r.status}): ${txt.slice(0,300)}</p>`;return;}
     const res=await r.json();
@@ -2536,7 +2536,7 @@ async function confirmarImport(){
   if(!importRows.length)return;
   document.getElementById('btn-confirmar-import').disabled=true;
   document.getElementById('btn-confirmar-import').textContent='Importando...';
-  const r=await fetch('/api/importar/salvar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({rows:importRows})});
+  const r=await fetch(location.origin+'/api/importar/salvar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({rows:importRows})});
   const res=await r.json();
   if(res.erro)toast('Erro: '+res.erro);
   else{closeImport();toast(`✓ ${res.inseridas} nova(s) inserida(s), ${res.atualizadas} atualizada(s).`);load();}
