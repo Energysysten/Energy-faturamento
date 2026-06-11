@@ -138,9 +138,9 @@ def init_db():
                 created_at TEXT
             );
         """)
-        # Carregar dados históricos do seed se o banco estiver vazio
-        if not conn.execute("SELECT 1 FROM medicoes LIMIT 1").fetchone():
-            seed_path = Path(os.environ.get("FAT_BASE", Path(__file__).parent)) / "seed_data.json"
+        # Sempre carregar seed no startup (INSERT OR IGNORE = seguro, não sobrescreve dados novos)
+        seed_path = Path(os.environ.get("FAT_BASE", Path(__file__).parent)) / "seed_data.json"
+        if True:
             if seed_path.exists():
                 import json as _json
                 with open(seed_path, encoding="utf-8") as _f:
