@@ -2798,15 +2798,17 @@ function renderRealocacaoTabela() {
   const hoje = new Date();
   const mesAtual = `${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}`;
   const mesProx = proximoMes(mesAtual);
-  const opcoesMeses = [];
+  const mesAnt = (()=>{const d=new Date(hoje.getFullYear(),hoje.getMonth()-1,1);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;})();
+  const opcoesMeses = [mesAnt];
   let m = mesAtual;
   for(let i=0; i<6; i++) {
     opcoesMeses.push(m);
     m = proximoMes(m);
   }
   selDest.innerHTML = opcoesMeses.map(mo =>
-    `<option value="${mo}">${mesLabel(mo)}${mo===mesAtual?' (mês atual)':mo===mesProx?' (próximo)':''}</option>`
+    `<option value="${mo}">${mesLabel(mo)}${mo===mesAnt?' (mês anterior)':mo===mesAtual?' (mês atual)':mo===mesProx?' (próximo)':''}</option>`
   ).join('');
+  selDest.value = mesAtual;
 
   const totalVal = items.reduce((a,i) => a + Number(i.provisao||0), 0);
 
