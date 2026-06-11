@@ -823,6 +823,119 @@ def api_reject(id):
         conn.execute("DELETE FROM delete_requests WHERE id=?", (id,))
     return jsonify({"ok": True})
 
+@app.route("/api/importar/preview", methods=["POST"])
+@login_required
+def api_import_preview():
+    file = request.files.get("arquivo")
+    if not file:
+        return jsonify({"erro": "Nenhum arquivo enviado"}), 400
+    try:
+        buf = BytesIO(file.read())
+        df = pd.read_excel(buf, sheet_name="Medições", header=2)
+        # Colunas: Empresa, Gestor, Nº Contrato, Nome Contrato, CC, Obra, Competência, Nº Folha, Valor Medido, NF, Obs
+        df.columns = [str(c).strip() for c in df.columns]
+        col_map = {
+            df.columns[0]: "empresa",
+            df.columns[1]: "gestor",
+            df.columns[2]: "contrato_num",
+            df.columns[3]: "contrato_nome",
+            df.columns[4]: "cod",
+            df.columns[5]: "obra",
+            df.columns[6]: "comp",
+            df.columns[7]: "pedido",
+            df.columns[8]: "provisao",
+            df.columns[9]: "nf",
+            df.columns[10]: "obs",
+        } if len(df.columns) >= 11 else {}
+        df = df.rename(columns=col_map)
+        df = df[df["empresa"].notna() & (df["empresa"].astype(str).str.strip() != "") & (df["empresa"].astype(str).str.strip() != "nan")].copy()
+        df["contrato_num"] = df["contrato_num"].apply(
+            lambda x: str(int(float(x))) if pd.notna(x) and str(x).strip() not in ("", "nan") else ""
+        ).str.strip()
+        df["comp"] = df["comp"].apply(
+            lambda x: str(x).strip() if pd.notna(x) and str(x).strip() not in ("", "nan") else ""
+        )
+        df["provisao"] = pd.to_numeric(df.get("provisao", pd.Series(dtype=float)), errors="coerce").fillna(0)
+
+        import math
+        def _safe(v):
+            if v is None: return None
+            try:
+                if pd.isna(v): return None
+            except: pass
+            if isinstance(v, float) and (math.isnan(v) or math.isinf(v)): return None
+            return v
+
+        rows = []
+        for _, r in df.iterrows():
+            rows.append({
+                "empresa":       _safe(r.get("empresa")),
+                "gestor":        _safe(r.get("gestor")),
+                "contrato_num":  _safe(r.get("contrato_num")),
+                "contrato_nome": _safe(r.get("contrato_nome")),
+                "cod":           _safe(r.get("cod")),
+                "obra":          _safe(r.get("obra")),
+                "comp":          _safe(r.get("comp")),
+                "pedido":        _safe(r.get("pedido")),
+                "provisao":      float(r.get("provisao", 0) or 0),
+                "nf":            _safe(r.get("nf")),
+                "obs":           _safe(r.get("obs")),
+                "status":        "previsto",
+            })
+
+        import json as _json
+        resp_str = _json.dumps({"total": len(rows), "preview": rows[:10], "rows": rows}, ensure_ascii=False, allow_nan=False)
+        return app.response_class(response=resp_str, status=200, mimetype="application/json")
+    except Exception as e:
+        return jsonify({"erro": str(e)}), 400
+
+@app.route("/api/importar/salvar", methods=["POST"])
+@login_required
+def api_import_save():
+    rows = request.json.get("rows", [])
+    now = datetime.now().isoformat()
+    inseridas = atualizadas = 0
+    with get_db() as conn:
+        for r in rows:
+            obra     = r.get("obra") or ""
+            contrato = r.get("contrato_num") or ""
+            comp     = r.get("comp") or ""
+            existing = conn.execute(
+                "SELECT id, status FROM medicoes WHERE obra=? AND contrato_num=? AND comp=? AND delete_requested=0",
+                (obra, contrato, comp)
+            ).fetchone()
+            if existing:
+                new_status = r.get("status", "previsto")
+                if existing["status"] != "previsto":
+                    new_status = existing["status"]
+                conn.execute("""
+                    UPDATE medicoes SET empresa=?,gestor=?,contrato_nome=?,cod=?,
+                        provisao=?,obs=?,status=?,updated_at=? WHERE id=?
+                """, (r.get("empresa"), r.get("gestor"), r.get("contrato_nome"),
+                      r.get("cod"), r.get("provisao", 0), r.get("obs"),
+                      new_status, now, existing["id"]))
+                atualizadas += 1
+            else:
+                conn.execute("""
+                    INSERT INTO medicoes(id,empresa,gestor,contrato_num,contrato_nome,
+                        obra,cod,comp,provisao,obs,status,created_at,updated_at)
+                    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)
+                """, (str(uuid.uuid4()), r.get("empresa"), r.get("gestor"),
+                      contrato, r.get("contrato_nome"),
+                      obra, r.get("cod"), comp,
+                      r.get("provisao", 0), r.get("obs"),
+                      "previsto", now, now))
+                inseridas += 1
+        # Atualizar tabela contratos
+        for r in rows:
+            cnum = r.get("contrato_num")
+            cnome = r.get("contrato_nome")
+            emp = r.get("empresa")
+            if cnum:
+                conn.execute("INSERT OR IGNORE INTO contratos(num,nome,empresa,saldo) VALUES(?,?,?,0)",
+                             (cnum, cnome or "", emp or ""))
+    return jsonify({"inseridas": inseridas, "atualizadas": atualizadas})
+
 @app.route("/api/provisoes-pendentes")
 @login_required
 def api_provisoes_pendentes():

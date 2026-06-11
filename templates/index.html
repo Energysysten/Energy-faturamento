@@ -426,6 +426,8 @@ tr:hover td{background:#fafafa}
           <input type="text" id="search" placeholder="Buscar obra..." oninput="applyFilters()" style="width:180px">
           <button class="btn primary" onclick="openModal()">+ Nova linha</button>
           <button class="btn danger prominent" id="btn-del-selected" onclick="delSelected()" disabled>🗑 Solicitar exclusão</button>
+          <button class="btn" onclick="document.getElementById('file-import').click()">⬆ Importar Modelo</button>
+          <input type="file" id="file-import" accept=".xlsx" style="display:none" onchange="iniciarImport(event)">
           <a href="/api/exportar" class="btn">⬇ Exportar XLS</a>
         </div>
       </div>
@@ -756,6 +758,18 @@ tr:hover td{background:#fafafa}
   </div>
   <div class="dp-body" id="dp-body"></div>
   <div class="dp-footer" id="dp-footer"></div>
+</div>
+
+<!-- ── Modal: importação ──────────────────────────────────────────────────── -->
+<div class="overlay" id="overlay-import" onclick="closeImportOnOverlay(event)">
+  <div class="modal" style="width:700px">
+    <h2 id="import-title">Importar Modelo de Medições</h2>
+    <div id="import-body"><p style="color:#666;font-size:13px">Carregando prévia...</p></div>
+    <div class="modal-actions" id="import-actions">
+      <button class="btn" onclick="closeImport()">Cancelar</button>
+      <button class="btn primary" id="btn-confirmar-import" onclick="confirmarImport()" disabled>Confirmar importação</button>
+    </div>
+  </div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -2479,6 +2493,58 @@ async function loadDeleteRequests(){
 }
 async function approveDelete(id){if(!confirm('Aprovar?'))return;const r=await fetch('/api/delete-requests/'+id+'/approve',{method:'POST'});if(r.ok){toast('Excluído.');load();}loadDeleteRequests();}
 async function rejectDelete(id){if(!confirm('Rejeitar?'))return;const r=await fetch('/api/delete-requests/'+id+'/reject',{method:'POST'});if(r.ok)toast('Rejeitado.');loadDeleteRequests();}
+
+// ── Importação (Modelo_Medicoes.xlsx) ─────────────────────────────────────
+let importRows=[];
+
+async function iniciarImport(event){
+  const file=event.target.files[0];if(!file)return;
+  const savedFile=file;
+  event.target.value='';
+  document.getElementById('import-title').textContent='Importar Modelo de Medições';
+  document.getElementById('import-body').innerHTML='<p style="color:#666;font-size:13px">Lendo arquivo...</p>';
+  document.getElementById('btn-confirmar-import').disabled=true;
+  document.getElementById('overlay-import').classList.add('open');
+  const fd=new FormData();fd.append('arquivo',savedFile);
+  try{
+    const r=await fetch('/api/importar/preview',{method:'POST',body:fd});
+    if(r.redirected&&r.url.includes('/login')){document.getElementById('import-body').innerHTML='<p style="color:#A32D2D">Sessão expirada.</p>';return;}
+    if(!r.ok){const txt=await r.text();document.getElementById('import-body').innerHTML=`<p style="color:#A32D2D">Erro (${r.status}): ${txt.slice(0,300)}</p>`;return;}
+    const res=await r.json();
+    if(res.erro){document.getElementById('import-body').innerHTML=`<p style="color:#A32D2D">${res.erro}</p>`;return;}
+    importRows=res.rows;
+    const st=res.preview.map(r=>`<tr>
+      <td style="font-size:11px">${r.empresa==='ENERGY CONSTRUÇÕES'?'<span class="ec">EC</span>':'<span class="es">ES</span>'}</td>
+      <td style="font-size:11px">${r.gestor||'—'}</td>
+      <td style="font-size:11px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.obra||'—'}</td>
+      <td style="font-size:11px;white-space:nowrap">${compLabel(r.comp)}</td>
+      <td style="font-size:11px" class="currency">R$ ${fmt(r.provisao)}</td>
+    </tr>`).join('');
+    document.getElementById('import-body').innerHTML=`
+      <div style="background:#EAF3DE;border-radius:8px;padding:10px 14px;margin-bottom:1rem;font-size:13px;color:#3B6D11">
+        <strong>${res.total} linha${res.total>1?'s':''}</strong> encontrada${res.total>1?'s':''} no arquivo.
+      </div>
+      <div style="overflow-x:auto"><table><thead><tr><th>Emp.</th><th>Gestor</th><th>Obra</th><th>Competência</th><th>Valor</th></tr></thead><tbody>${st}</tbody></table></div>
+      ${res.total>res.preview.length?`<p style="font-size:11px;color:#999;margin-top:6px">... e mais ${res.total-res.preview.length} linha(s)</p>`:''}`;
+    document.getElementById('btn-confirmar-import').disabled=false;
+  }catch(e){
+    document.getElementById('import-body').innerHTML=`<p style="color:#A32D2D">Erro: ${e.message}</p>`;
+  }
+}
+
+async function confirmarImport(){
+  if(!importRows.length)return;
+  document.getElementById('btn-confirmar-import').disabled=true;
+  document.getElementById('btn-confirmar-import').textContent='Importando...';
+  const r=await fetch('/api/importar/salvar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({rows:importRows})});
+  const res=await r.json();
+  if(res.erro)toast('Erro: '+res.erro);
+  else{closeImport();toast(`✓ ${res.inseridas} nova(s) inserida(s), ${res.atualizadas} atualizada(s).`);load();}
+  document.getElementById('btn-confirmar-import').disabled=false;
+  document.getElementById('btn-confirmar-import').textContent='Confirmar importação';
+}
+function closeImport(){document.getElementById('overlay-import').classList.remove('open');importRows=[];}
+function closeImportOnOverlay(e){if(e.target===document.getElementById('overlay-import'))closeImport();}
 
 // ── Gerenciar Usuários (admin) ────────────────────────────────────────────
 let usuarioEditId=null;
