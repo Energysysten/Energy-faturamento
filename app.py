@@ -70,6 +70,19 @@ def init_db():
                 requested_by TEXT, requested_at TEXT,
                 obra TEXT, contrato_num TEXT, contrato_nome TEXT, comp TEXT
             );
+            CREATE TABLE IF NOT EXISTS folhas_recebidas (
+                id TEXT PRIMARY KEY,
+                n_folha TEXT UNIQUE NOT NULL,
+                n_contrato TEXT,
+                periodo TEXT,
+                municipio TEXT,
+                fornecedor TEXT,
+                valor_total REAL DEFAULT 0,
+                arquivo TEXT,
+                data_recebimento TEXT,
+                status TEXT,
+                nf TEXT
+            );
             CREATE TABLE IF NOT EXISTS medicao_folhas (
                 id TEXT PRIMARY KEY,
                 medicao_id TEXT NOT NULL,
@@ -213,7 +226,13 @@ def init_db():
 
 def _read_controle():
     if not Path(CTRL_PATH).exists():
-        return []
+        # Render: ler do banco de dados
+        try:
+            with get_db() as conn:
+                rows = conn.execute("SELECT * FROM folhas_recebidas ORDER BY data_recebimento DESC").fetchall()
+            return [dict(r) for r in rows]
+        except Exception:
+            return []
     try:
         df = pd.read_excel(CTRL_PATH, sheet_name="Medições")
         df.columns = [
