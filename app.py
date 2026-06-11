@@ -1094,6 +1094,39 @@ def api_delete_usuario(id):
         conn.execute("UPDATE usuarios SET ativo=0 WHERE id=?", (id,))
     return jsonify({"ok": True})
 
+@app.route("/api/carregar-seed", methods=["POST"])
+@login_required
+def api_carregar_seed():
+    if session.get("role") != "admin":
+        return jsonify({"erro": "Sem permissão"}), 403
+    import json as _json
+    seed_path = Path(os.environ.get("FAT_BASE", Path(__file__).parent)) / "seed_data.json"
+    if not seed_path.exists():
+        return jsonify({"erro": f"seed_data.json não encontrado em {seed_path}"}), 404
+    with open(seed_path, encoding="utf-8") as f:
+        seed = _json.load(f)
+    counts = {}
+    erros = []
+    with get_db() as conn:
+        for table, rows in seed.items():
+            if not rows:
+                continue
+            cols = list(rows[0].keys())
+            placeholders = ",".join(["?"] * len(cols))
+            col_names = ",".join(cols)
+            ok = 0
+            for row in rows:
+                try:
+                    conn.execute(
+                        f"INSERT OR IGNORE INTO {table}({col_names}) VALUES({placeholders})",
+                        [row.get(c) for c in cols]
+                    )
+                    ok += 1
+                except Exception as e:
+                    erros.append(f"{table}: {e}")
+            counts[table] = ok
+    return jsonify({"ok": True, "inseridos": counts, "erros": erros[:10]})
+
 @app.route("/api/exportar")
 @login_required
 def api_exportar():
