@@ -1199,7 +1199,8 @@ def resetar_senha(token):
     return render_template("resetar_senha.html", invalido=False, erro=erro, token=token,
                            username=row["username"])
 
+init_db()
+
 if __name__ == "__main__":
-    init_db()
     port = int(os.environ.get("PORT", 8080))
     app.run(debug=True, host="0.0.0.0", port=port)
