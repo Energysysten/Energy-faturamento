@@ -53,6 +53,7 @@ def init_db():
                 pedido TEXT, nf TEXT, venc_nf TEXT,
                 retencao REAL, impostos REAL,
                 status TEXT DEFAULT 'previsto',
+                status_prov TEXT DEFAULT 'aberta',
                 obs TEXT,
                 created_at TEXT, updated_at TEXT,
                 delete_requested INTEGER DEFAULT 0,
