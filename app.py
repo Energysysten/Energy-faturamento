@@ -968,7 +968,7 @@ def api_provisoes_pendentes():
     nome = session.get("nome", session.get("user", ""))
 
     with get_db() as conn:
-        if role == "admin":
+        if role in ("admin", "financeiro"):
             rows = conn.execute("""
                 SELECT m.*,
                        (SELECT COALESCE(SUM(mf.valor),0) FROM medicao_folhas mf WHERE mf.medicao_id = m.id) AS vl_medido,
@@ -982,7 +982,7 @@ def api_provisoes_pendentes():
                 ORDER BY m.gestor, m.comp DESC, m.contrato_num, m.obra
             """, (mes_atual,)).fetchall()
         else:
-            # Filtra pelo gestor cujo nome bate com o do usuário logado (case-insensitive)
+            # engenharia: filtra pelo gestor cujo nome bate com o do usuário logado
             rows = conn.execute("""
                 SELECT m.*,
                        (SELECT COALESCE(SUM(mf.valor),0) FROM medicao_folhas mf WHERE mf.medicao_id = m.id) AS vl_medido,
