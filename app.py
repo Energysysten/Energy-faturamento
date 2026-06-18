@@ -63,8 +63,39 @@ def init_db():
             );
         """)
         count = conn.execute("SELECT COUNT(*) FROM medicoes").fetchone()[0]
-        if count == 0 and FAT_PATH.exists():
-            _seed_from_xlsx(conn)
+        if count == 0:
+            seed_json = BASE_DIR / "seed_data.json"
+            if seed_json.exists():
+                _seed_from_json(conn, seed_json)
+            elif FAT_PATH.exists():
+                _seed_from_xlsx(conn)
+
+def _seed_from_json(conn, path):
+    import json
+    with open(path, encoding='utf-8') as f:
+        data = json.load(f)
+    now = datetime.now().isoformat()
+    for r in data.get('medicoes', []):
+        conn.execute("""
+            INSERT OR IGNORE INTO medicoes
+            (id,empresa,gestor,contrato_num,contrato_nome,obra,cod,comp,
+             provisao,medicao,pedido,nf,venc_nf,retencao,impostos,status,obs,
+             delete_requested,delete_requested_by,delete_requested_at,created_at,updated_at)
+            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        """, (
+            r.get('id'), r.get('empresa'), r.get('gestor'),
+            r.get('contrato_num'), r.get('contrato_nome'),
+            r.get('obra'), r.get('cod'), r.get('comp'),
+            r.get('provisao', 0), r.get('medicao'),
+            r.get('pedido'), r.get('nf'), r.get('venc_nf'),
+            r.get('retencao'), r.get('impostos'),
+            r.get('status', 'previsto'), r.get('obs'),
+            0, None, None,
+            r.get('created_at', now), r.get('updated_at', now),
+        ))
+    for c in data.get('contratos', []):
+        conn.execute("INSERT OR IGNORE INTO contratos(num,nome,saldo) VALUES(?,?,?)",
+                     (c.get('num'), c.get('nome'), c.get('saldo', 0)))
 
 def _seed_from_xlsx(conn):
     df = pd.read_excel(FAT_PATH, sheet_name="index", header=1, usecols="B:S")
