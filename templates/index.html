@@ -50,6 +50,12 @@ select:focus,input:focus,textarea:focus{border-color:#185FA5}
 .filter-bar{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:.875rem}
 .filter-btn{font-size:11px;padding:4px 11px;border-radius:20px;border:1px solid #ddd;background:#fff;color:#666;cursor:pointer}
 .filter-btn.active{background:#185FA5;border-color:#185FA5;color:#fff}
+.empresa-bar{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:.625rem}
+.emp-btn{font-size:12px;padding:5px 14px;border-radius:20px;border:2px solid #ddd;background:#fff;color:#555;cursor:pointer;font-weight:600;transition:all .15s}
+.emp-btn:hover{border-color:#185FA5;color:#185FA5}
+.emp-btn.active-all{background:#1a1a2e;border-color:#1a1a2e;color:#fff}
+.emp-btn.active-cons{background:#185FA5;border-color:#185FA5;color:#fff}
+.emp-btn.active-serv{background:#3B6D11;border-color:#3B6D11;color:#fff}
 table{width:100%;border-collapse:collapse;font-size:12px}
 th{text-align:left;padding:8px 8px;color:#888;font-weight:600;border-bottom:1px solid #e5e7eb;white-space:nowrap;font-size:11px;text-transform:uppercase;letter-spacing:.4px}
 td{padding:9px 8px;border-bottom:1px solid #f0f0f0;vertical-align:middle}
@@ -324,6 +330,13 @@ tr:hover td{background:#fafafa}
   <!-- ══════════════════════════════════════════════════════════════════════ -->
   <div class="tab-pane active" id="tab-dashboard">
 
+    <!-- ── Filtro de empresa ─────────────────────────────────────────────── -->
+    <div class="empresa-bar">
+      <button class="emp-btn active-all" id="dash-emp-all"  onclick="setDashEmpresa('')">Todas</button>
+      <button class="emp-btn"            id="dash-emp-cons" onclick="setDashEmpresa('ENERGY CONSTRUÇÕES')">🏗 Energy Construções</button>
+      <button class="emp-btn"            id="dash-emp-serv" onclick="setDashEmpresa('ENERGY SERVIÇOS')">⚙️ Energy Serviços</button>
+    </div>
+
     <!-- ── Comparar com (só no dashboard) ─────────────────────────────────── -->
     <div id="dash-comp-wrap" style="display:none;background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:10px 16px;margin-bottom:14px">
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
@@ -430,6 +443,11 @@ tr:hover td{background:#fafafa}
           <input type="file" id="file-import" accept=".xlsx" style="display:none" onchange="iniciarImport(event)">
           <a href="/api/exportar" class="btn">⬇ Exportar XLS</a>
         </div>
+      </div>
+      <div class="empresa-bar">
+        <button class="emp-btn active-all" id="prov-emp-all"  onclick="setProvEmpresa('')">Todas</button>
+        <button class="emp-btn"            id="prov-emp-cons" onclick="setProvEmpresa('ENERGY CONSTRUÇÕES')">🏗 Energy Construções</button>
+        <button class="emp-btn"            id="prov-emp-serv" onclick="setProvEmpresa('ENERGY SERVIÇOS')">⚙️ Energy Serviços</button>
       </div>
       <div class="filter-bar" id="filter-bar"></div>
       <div style="overflow-x:auto">
@@ -956,6 +974,7 @@ async function confirmarScan(){
 
 let chartDonut=null, chartContratos=null, chartMensal=null;
 let dashCompSel=null, dashCompComp='';   // null = Todos, string = mês selecionado
+let dashEmpresaSel='', provEmpresaSel='';
 
 // ── Renderiza só os pills globais (independente da aba ativa) ─────────────
 function renderMesPills(){
@@ -1034,8 +1053,11 @@ function mesAnterior(comp){
 function renderDashboard(){
   if(!data.length)return;
 
+  // ── Filtro de empresa
+  const dataEmp=dashEmpresaSel?data.filter(i=>i.empresa===dashEmpresaSel):data;
+
   // ── Meses disponíveis
-  const allComps=[...new Set(data.map(i=>i.comp).filter(Boolean))].sort();
+  const allComps=[...new Set(dataEmp.map(i=>i.comp).filter(Boolean))].sort();
 
   // Default: seleciona mês mais recente se nunca foi inicializado (null = uninitialized first load)
   if(dashCompSel===null && typeof dashCompInitialized==='undefined'){
@@ -1061,12 +1083,12 @@ function renderDashboard(){
   if(btnLimpar) btnLimpar.style.display=compComp?'inline-flex':'none';
 
   // ── Dados computados
-  const cur=calcMes(data,folhas,compSel);
-  const cmp=compComp?calcMes(data,folhas,compComp):null;
-  const dataFil=compSel?data.filter(i=>i.comp===compSel):data;
+  const cur=calcMes(dataEmp,folhas,compSel);
+  const cmp=compComp?calcMes(dataEmp,folhas,compComp):null;
+  const dataFil=compSel?dataEmp.filter(i=>i.comp===compSel):dataEmp;
   const naoVincFolhas=compSel
-    ?folhas.filter(f=>f.periodo===compSel&&!data.some(d=>(d.folhas_vinculadas||[]).some(l=>l.n_folha===f.n_folha)))
-    :folhas.filter(f=>!data.some(d=>(d.folhas_vinculadas||[]).some(l=>l.n_folha===f.n_folha)));
+    ?folhas.filter(f=>f.periodo===compSel&&!dataEmp.some(d=>(d.folhas_vinculadas||[]).some(l=>l.n_folha===f.n_folha)))
+    :folhas.filter(f=>!dataEmp.some(d=>(d.folhas_vinculadas||[]).some(l=>l.n_folha===f.n_folha)));
   const vlNaoVinc=naoVincFolhas.reduce((a,f)=>a+Number(f.valor_total||0),0);
   const totalFaturado=cur.fat;
   const totalMedido=cur.med;
@@ -1074,7 +1096,7 @@ function renderDashboard(){
   const totalFolhas=cur.folhas.reduce((a,f)=>a+Number(f.valor_total||0),0);
 
   // ── Números gerais (filtrados pelo mês selecionado)
-  const nCtrs=Object.keys(saldos).length||[...new Set(data.map(i=>i.contrato_num).filter(Boolean))].length;
+  const nCtrs=Object.keys(saldos).length||[...new Set(dataEmp.map(i=>i.contrato_num).filter(Boolean))].length;
   const nObras=[...new Set(dataFil.map(i=>i.obra).filter(Boolean))].length;
   const rotulo=compSel?compLabel(compSel):'acumulado geral';
   document.getElementById('dash-geral').innerHTML=`
@@ -1158,7 +1180,7 @@ function renderDashboard(){
 
   // ── Evolução mensal (clique seleciona mês)
   const byComp={};
-  data.forEach(i=>{
+  dataEmp.forEach(i=>{
     if(!i.comp)return;
     if(!byComp[i.comp])byComp[i.comp]={prov:0,med:0,fat:0};
     byComp[i.comp].prov+=Number(i.provisao||0);
@@ -1403,6 +1425,25 @@ function applyFilters(){
 }
 
 function setFilter(s){filterStatus=s;applyFilters();}
+
+function setProvEmpresa(val){
+  provEmpresaSel=val;
+  document.getElementById('sel-empresa').value=val;
+  document.querySelectorAll('#prov-emp-all,#prov-emp-cons,#prov-emp-serv').forEach(b=>b.className='emp-btn');
+  if(val==='') document.getElementById('prov-emp-all').classList.add('active-all');
+  else if(val==='ENERGY CONSTRUÇÕES') document.getElementById('prov-emp-cons').classList.add('active-cons');
+  else document.getElementById('prov-emp-serv').classList.add('active-serv');
+  applyFilters();
+}
+
+function setDashEmpresa(val){
+  dashEmpresaSel=val;
+  document.querySelectorAll('#dash-emp-all,#dash-emp-cons,#dash-emp-serv').forEach(b=>b.className='emp-btn');
+  if(val==='') document.getElementById('dash-emp-all').classList.add('active-all');
+  else if(val==='ENERGY CONSTRUÇÕES') document.getElementById('dash-emp-cons').classList.add('active-cons');
+  else document.getElementById('dash-emp-serv').classList.add('active-serv');
+  renderDashboard();
+}
 
 function nfStatus(item){
   if(!['aprovado','nf_emitida'].includes(item.status))return null;
