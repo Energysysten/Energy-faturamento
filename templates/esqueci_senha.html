@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Energy — Recuperar senha</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,sans-serif;background:#f0f2f5;display:flex;align-items:center;justify-content:center;min-height:100vh}
+.card{background:#fff;border-radius:12px;border:1px solid #e5e7eb;padding:2rem;width:360px;box-shadow:0 4px 16px rgba(0,0,0,.07)}
+h1{font-size:18px;font-weight:700;color:#1a1a2e;margin-bottom:6px}
+p{font-size:13px;color:#888;margin-bottom:1.5rem}
+label{display:block;font-size:12px;font-weight:600;color:#555;margin-bottom:5px}
+input{width:100%;padding:9px 12px;font-size:13px;border:1px solid #ddd;border-radius:7px;outline:none;margin-bottom:1rem}
+input:focus{border-color:#185FA5}
+.btn{width:100%;background:#185FA5;border:none;border-radius:7px;padding:10px;font-size:14px;font-weight:600;color:#fff;cursor:pointer}
+.btn:hover{background:#0C447C}
+.error{background:#FCEBEB;color:#A32D2D;font-size:12px;padding:10px 12px;border-radius:7px;margin-bottom:1rem}
+.success{background:#EAF3DE;color:#3B6D11;font-size:12px;padding:10px 12px;border-radius:7px;margin-bottom:1rem}
+.back{display:block;text-align:center;margin-top:1rem;font-size:12px;color:#185FA5;text-decoration:none}
+.back:hover{text-decoration:underline}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>⚡ Recuperar senha</h1>
+  <p>Informe seu usuário ou email cadastrado para receber o link de redefinição.</p>
+
+  {% if erro %}<div class="error">{{ erro }}</div>{% endif %}
+  {% if msg %}<div class="success">{{ msg }}</div>{% endif %}
+
+  {% if not msg %}
+  <form method="POST">
+    <label>Usuário ou email</label>
+    <input type="text" name="login_or_email" autofocus placeholder="Ex: joao.silva ou email@empresa.com">
+    <button class="btn" type="submit">Enviar link de redefinição</button>
+  </form>
+  {% endif %}
+
+  <a class="back" href="/login">← Voltar ao login</a>
+</div>
+</body>
+</html>

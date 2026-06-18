@@ -1,0 +1,3184 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Energy — Faturamento</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,sans-serif;background:#f0f2f5;color:#1a1a2e;font-size:14px}
+.topbar{background:#fff;border-bottom:1px solid #e5e7eb;padding:0 1.5rem;display:flex;align-items:center;justify-content:space-between;height:56px;position:sticky;top:0;z-index:50}
+.topbar h1{font-size:17px;font-weight:700;color:#1a1a2e}
+.topbar-right{display:flex;align-items:center;gap:12px}
+.user-badge{font-size:12px;color:#444;background:#f0f2f5;padding:5px 10px 5px 8px;border-radius:20px;display:flex;align-items:center;gap:6px}
+.online-dot{width:8px;height:8px;border-radius:50%;background:#3B6D11;display:inline-block;box-shadow:0 0 0 2px #d4edbc;animation:pulse-dot 2s infinite}
+@keyframes pulse-dot{0%,100%{box-shadow:0 0 0 2px #d4edbc}50%{box-shadow:0 0 0 4px #c2e39b}}
+.role-badge{font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;letter-spacing:.3px}
+.role-admin{background:#ede9fe;color:#5b21b6}
+.role-engenharia{background:#dbeafe;color:#1e40af}
+.role-financeiro{background:#dcfce7;color:#166534}
+.btn-logout{font-size:12px;color:#A32D2D;background:none;border:1px solid #A32D2D;padding:5px 12px;border-radius:6px;cursor:pointer}
+.btn-logout:hover{background:#FCEBEB}
+.main{padding:1.25rem 1.5rem;max-width:1400px;margin:0 auto}
+.cards-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:1.25rem}
+@media(max-width:700px){.cards-grid{grid-template-columns:repeat(2,1fr)}}
+.metric{background:#fff;border-radius:10px;padding:.875rem 1rem;border:1px solid #e5e7eb}
+.metric-label{font-size:11px;color:#888;margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px}
+.metric-value{font-size:20px;font-weight:700;color:#1a1a2e}
+.metric-value.success{color:#3B6D11}
+.metric-value.danger{color:#A32D2D}
+.metric-value.warn{color:#854F0B}
+.metric-sub{font-size:11px;color:#999;margin-top:3px}
+.section{background:#fff;border-radius:10px;border:1px solid #e5e7eb;padding:1.125rem;margin-bottom:1rem}
+.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:.875rem;flex-wrap:wrap;gap:8px}
+.section-title{font-size:15px;font-weight:600}
+.controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+select,input[type=text],input[type=month],input[type=date],input[type=number],textarea{padding:7px 10px;font-size:13px;border:1px solid #ddd;border-radius:7px;background:#fff;color:#1a1a2e;outline:none}
+select:focus,input:focus,textarea:focus{border-color:#185FA5}
+.btn{background:#fff;border:1px solid #ddd;border-radius:7px;padding:7px 13px;font-size:13px;color:#1a1a2e;cursor:pointer;display:inline-flex;align-items:center;gap:5px}
+.btn:hover{background:#f5f5f5}
+.btn.primary{background:#185FA5;border-color:#185FA5;color:#fff}
+.btn.primary:hover{background:#0C447C}
+.btn.sm{padding:4px 9px;font-size:12px}
+.btn.danger{color:#A32D2D;border-color:#A32D2D}
+.btn.danger:hover{background:#FCEBEB}
+.btn.danger.prominent{background:#A32D2D;border-color:#A32D2D;color:#fff;font-weight:700;box-shadow:0 6px 16px rgba(163,45,45,.25)}
+.btn.danger.prominent:hover{background:#8C2424}
+.btn.success{background:#3B6D11;border-color:#3B6D11;color:#fff}
+.btn.success:hover{background:#2d5309}
+.filter-bar{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:.875rem}
+.filter-btn{font-size:11px;padding:4px 11px;border-radius:20px;border:1px solid #ddd;background:#fff;color:#666;cursor:pointer}
+.filter-btn.active{background:#185FA5;border-color:#185FA5;color:#fff}
+.empresa-bar{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:.5rem}
+.emp-btn{font-size:12px;padding:5px 14px;border-radius:20px;border:2px solid #ddd;background:#fff;color:#555;cursor:pointer;font-weight:600;transition:all .15s}
+.emp-btn:hover{border-color:#185FA5;color:#185FA5}
+.emp-btn.active-all{background:#1a1a2e;border-color:#1a1a2e;color:#fff}
+.emp-btn.active-cons{background:#185FA5;border-color:#185FA5;color:#fff}
+.emp-btn.active-serv{background:#3B6D11;border-color:#3B6D11;color:#fff}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{text-align:left;padding:8px 8px;color:#888;font-weight:600;border-bottom:1px solid #e5e7eb;white-space:nowrap;font-size:11px;text-transform:uppercase;letter-spacing:.4px}
+td{padding:9px 8px;border-bottom:1px solid #f0f0f0;vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#fafafa}
+.badge{display:inline-flex;align-items:center;font-size:10px;padding:2px 8px;border-radius:20px;font-weight:600;white-space:nowrap}
+.b-prev{background:#f0f0f0;color:#666}
+.b-med{background:#E6F1FB;color:#185FA5}
+.b-val{background:#FAEEDA;color:#854F0B}
+.b-apr{background:#EAF3DE;color:#3B6D11}
+.b-nf{background:#EEEDFE;color:#534AB7}
+.b-ok{background:#EAF3DE;color:#3B6D11}
+.b-atras{background:#FCEBEB;color:#A32D2D}
+.b-recv{background:#E6F1FB;color:#185FA5}
+.ec{background:#E6F1FB;color:#185FA5;font-size:10px;padding:2px 6px;border-radius:4px;font-weight:600}
+.es{background:#EEEDFE;color:#534AB7;font-size:10px;padding:2px 6px;border-radius:4px;font-weight:600}
+.obra-label{font-weight:600;font-size:12px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.obra-sub{font-size:10px;color:#999;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:1px}
+.currency{font-variant-numeric:tabular-nums}
+.empty{text-align:center;padding:2.5rem;color:#999;font-size:13px}
+.progress-bar{height:5px;background:#f0f0f0;border-radius:3px;margin-top:5px;overflow:hidden}
+.progress-fill{height:100%;border-radius:3px;background:#3B6D11;transition:width .4s}
+/* medições recebidas highlight */
+.folha-nova{background:#E6F1FB!important}
+.folha-vinculada{background:#EAF3DE!important}
+.folha-parcial{background:#FAEEDA!important}
+/* modal */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;align-items:flex-start;justify-content:center;padding-top:40px}
+.overlay.open{display:flex}
+.modal{background:#fff;border-radius:12px;padding:1.5rem;width:580px;max-width:96vw;max-height:88vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.18)}
+.modal h2{font-size:16px;font-weight:700;margin-bottom:1.25rem}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.field{margin-bottom:.875rem}
+.field label{display:block;font-size:12px;color:#555;margin-bottom:5px;font-weight:600}
+.field input,.field select,.field textarea{width:100%}
+.field textarea{resize:vertical;min-height:52px;font-size:12px}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:1rem;border-top:1px solid #eee;padding-top:1rem}
+/* custom dropdowns (contrato + CC) */
+.csel-wrap{position:relative;margin-bottom:0}
+.csel-btn{border:1px solid #ddd;border-radius:7px;padding:7px 10px;cursor:pointer;background:#fff;display:flex;align-items:center;gap:8px;min-height:36px;font-size:13px;user-select:none}
+.csel-btn:hover{border-color:#185FA5}
+.csel-btn.open{border-color:#185FA5;box-shadow:0 0 0 2px rgba(24,95,165,.15)}
+.csel-panel{position:absolute;top:calc(100% + 3px);left:0;right:0;background:#fff;border:1px solid #ddd;border-radius:8px;z-index:500;box-shadow:0 6px 20px rgba(0,0,0,.13);overflow:hidden}
+.csel-search{width:100%;padding:7px 10px;border:none;border-bottom:1px solid #eee;outline:none;font-size:12px;box-sizing:border-box}
+.csel-list{max-height:220px;overflow-y:auto}
+.csel-opt{padding:7px 10px;cursor:pointer;display:flex;align-items:center;gap:10px;font-size:12px;border-bottom:1px solid #f5f5f5}
+.csel-opt:last-child{border-bottom:none}
+.csel-opt:hover{background:#EEF4FF}
+.csel-placeholder{color:#aaa;font-size:13px}
+.csel-arrow{margin-left:auto;color:#aaa;font-size:11px;flex-shrink:0}
+.toast{position:fixed;bottom:24px;right:24px;background:#1a1a2e;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;z-index:999;opacity:0;transition:opacity .3s;pointer-events:none}
+.toast.show{opacity:1}
+/* visão mensal */
+.mensal-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;margin-top:4px}
+.mensal-card{background:#f8f9fb;border:1px solid #e5e7eb;border-radius:10px;padding:14px 16px}
+.mensal-month{font-size:13px;font-weight:700;color:#1a1a2e;margin-bottom:10px;display:flex;justify-content:space-between;align-items:baseline}
+.mensal-month span{font-size:11px;font-weight:400;color:#888}
+.mensal-bar-wrap{margin-bottom:7px}
+.mensal-bar-label{display:flex;justify-content:space-between;font-size:11px;color:#555;margin-bottom:3px}
+.mensal-bar-track{height:10px;background:#e8eaee;border-radius:5px;overflow:hidden}
+.mensal-bar-fill{height:100%;border-radius:5px;transition:width .4s}
+.mensal-bar-fill.prov{background:#185FA5}
+.mensal-bar-fill.med{background:#3B6D11}
+.mensal-bar-fill.recv{background:#854F0B}
+.mensal-bar-fill.apr{background:#534AB7}
+.mensal-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-top:10px;border-top:1px solid #e5e7eb;padding-top:10px}
+.mensal-stat{text-align:center}
+.mensal-stat-val{font-size:11px;font-weight:700;color:#1a1a2e}
+.mensal-stat-lbl{font-size:9px;color:#999;text-transform:uppercase;letter-spacing:.4px}
+.mensal-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+/* online panel */
+.online-panel{position:relative;display:inline-flex;align-items:center}
+.online-count{font-size:12px;color:#166534;background:#dcfce7;border:1px solid #bbf7d0;padding:5px 11px;border-radius:20px;cursor:pointer;display:flex;align-items:center;gap:5px;font-weight:600}
+.online-count:hover{background:#bbf7d0}
+.online-count .dot{width:7px;height:7px;border-radius:50%;background:#22c55e;display:inline-block}
+.online-dropdown{display:none;position:absolute;top:calc(100% + 8px);right:0;background:#fff;border:1px solid #e5e7eb;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.12);min-width:240px;z-index:300;padding:8px 0}
+.online-dropdown.open{display:block}
+.online-dropdown-header{font-size:10px;color:#999;text-transform:uppercase;letter-spacing:.5px;padding:4px 14px 6px;border-bottom:1px solid #f0f0f0;margin-bottom:4px}
+.online-user-row{display:flex;align-items:center;gap:8px;padding:6px 14px}
+.online-user-row:hover{background:#f9fafb}
+.online-user-dot{width:8px;height:8px;border-radius:50%;background:#22c55e;flex-shrink:0}
+.online-user-nome{font-size:12px;font-weight:600;color:#1a1a2e}
+.online-user-role{font-size:10px;color:#888;margin-left:auto}
+.online-user-time{font-size:10px;color:#bbb;margin-left:4px}
+
+/* ── Abas ─────────────────────────────────────────────────────────────────── */
+.tab-nav{display:flex;gap:4px;margin-bottom:1rem;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:5px}
+.tab-btn{flex:1;padding:8px 0;font-size:13px;font-weight:600;border:none;background:none;border-radius:8px;cursor:pointer;color:#888;transition:all .18s;display:flex;align-items:center;justify-content:center;gap:6px}
+.tab-btn:hover{background:#f5f5f5;color:#1a1a2e}
+.tab-btn.active{background:#1a1a2e;color:#fff}
+.tab-btn .tab-badge{font-size:10px;background:rgba(255,255,255,.2);padding:1px 6px;border-radius:10px}
+.tab-btn:not(.active) .tab-badge{background:#f0f2f5;color:#666}
+.tab-pane{display:none}.tab-pane.active{display:block}
+
+/* ── Dashboard charts ─────────────────────────────────────────────────────── */
+.dash-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+.dash-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:14px}
+.chart-card{background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:1.125rem}
+.chart-title{font-size:13px;font-weight:700;color:#1a1a2e;margin-bottom:1rem}
+.chart-sub{font-size:11px;color:#888;margin-top:4px}
+/* ── Pills de mês ─────────────────────────────────────────────────────────── */
+.mes-pills-row{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.mes-pill{padding:6px 16px;border-radius:20px;border:1.5px solid #e5e7eb;background:#fff;color:#666;cursor:pointer;font-size:12px;font-weight:600;transition:all .15s;white-space:nowrap;line-height:1.4}
+.mes-pill:hover{border-color:#185FA5;color:#185FA5;background:#EFF6FF}
+.mes-pill.active{background:#1a1a2e;border-color:#1a1a2e;color:#fff;box-shadow:0 2px 8px rgba(26,26,46,.2)}
+.mes-pill.comp-sel{background:#E0F2FE;border-color:#0369A1;color:#0369A1}
+.mes-pill.comp-sel:hover{background:#BAE6FD}
+.pill-sep{width:1px;height:24px;background:#e5e7eb;margin:0 4px;flex-shrink:0}
+/* ── Tabela de contratos no dashboard ─────────────────────────────────────── */
+.dash-ctr-table{width:100%;border-collapse:collapse;font-size:12px}
+.dash-ctr-table th{text-align:left;padding:7px 10px;color:#888;font-size:10px;text-transform:uppercase;letter-spacing:.4px;font-weight:600;border-bottom:2px solid #e5e7eb;white-space:nowrap}
+.dash-ctr-table td{padding:8px 10px;border-bottom:1px solid #f0f0f0;vertical-align:middle}
+.dash-ctr-table tr:last-child td{border-bottom:none}
+.dash-ctr-table tr:hover td{background:#fafafa}
+.ctr-progress{height:6px;background:#f0f0f0;border-radius:3px;overflow:hidden;min-width:80px}
+.ctr-progress-fill{height:100%;border-radius:3px;transition:width .4s}
+/* ── Card geral (topo) ────────────────────────────────────────────────────── */
+.geral-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
+.geral-card{background:#fff;border-radius:10px;border:1px solid #e5e7eb;padding:14px 16px}
+.geral-label{font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;font-weight:600}
+.geral-val{font-size:18px;font-weight:700;color:#1a1a2e;font-variant-numeric:tabular-nums}
+.geral-sub{font-size:11px;color:#999;margin-top:4px}
+.stat-row{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #f0f0f0}
+.stat-row:last-child{border-bottom:none}
+.stat-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.stat-label{font-size:12px;color:#555;flex:1}
+.stat-val{font-size:12px;font-weight:700;color:#1a1a2e;font-variant-numeric:tabular-nums}
+.stat-pct{font-size:11px;color:#888;min-width:36px;text-align:right}
+.gestor-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.gestor-card{border-radius:10px;padding:12px 14px;cursor:pointer;transition:all .15s;border-left-width:4px;border-left-style:solid;border-top:1px solid #e5e7eb;border-right:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb;background:#fff}
+.gestor-card:hover{background:#f8faff;transform:translateY(-1px);box-shadow:0 4px 14px rgba(0,0,0,.07)}
+.gestor-name{font-size:13px;font-weight:700;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between}
+.gestor-obras{font-size:10px;font-weight:500;color:#888;background:#f0f2f5;padding:2px 8px;border-radius:10px}
+.gestor-vals{display:grid;grid-template-columns:1fr 1fr 1fr;margin-bottom:10px;border:1px solid #f0f0f0;border-radius:7px;overflow:hidden}
+.gestor-val-cell{padding:6px 4px;text-align:center;background:#fafafa}
+.gestor-val-cell:not(:last-child){border-right:1px solid #f0f0f0}
+.gestor-val-label{font-size:9px;color:#999;text-transform:uppercase;letter-spacing:.3px;margin-bottom:3px}
+.gestor-val-num{font-size:11px;font-weight:700;font-variant-numeric:tabular-nums}
+.gestor-bar-wrap{margin-bottom:4px}
+.gestor-bar-bg{height:5px;background:#f0f0f0;border-radius:3px;overflow:hidden}
+.gestor-bar-fg{height:100%;border-radius:3px;transition:width .5s ease}
+.gestor-pcts{display:flex;justify-content:space-between;font-size:9px;color:#bbb;margin-top:2px}
+
+/* ── Badges status_prov ───────────────────────────────────────────────────── */
+.b-cumprida{background:#EAF3DE;color:#3B6D11}
+.b-aberta{background:#FEF3C7;color:#92400E}
+.b-parcial{background:#FEE4C4;color:#9A3412}
+.b-realocada{background:#E0F2FE;color:#0369A1}
+.b-cancelada{background:#F3F4F6;color:#6B7280}
+
+/* ── Alerta realocação ────────────────────────────────────────────────────── */
+.alerta-realoc{display:none;background:linear-gradient(135deg,#FEF3C7,#FDE68A);border:1.5px solid #F59E0B;border-radius:10px;padding:12px 18px;margin-bottom:14px;align-items:center;justify-content:space-between;gap:12px;box-shadow:0 2px 8px rgba(245,158,11,.15)}
+.alerta-realoc.show{display:flex}
+.alerta-realoc-icon{font-size:22px;flex-shrink:0}
+.alerta-realoc-text{flex:1}
+.alerta-realoc-title{font-size:14px;font-weight:700;color:#78350F;margin-bottom:2px}
+.alerta-realoc-sub{font-size:12px;color:#92400E}
+.btn-realoc{background:#F59E0B;border:none;color:#fff;padding:8px 18px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;transition:background .15s}
+.btn-realoc:hover{background:#D97706}
+
+/* ── Overlay realocação ───────────────────────────────────────────────────── */
+.realoc-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:500;align-items:flex-start;justify-content:center;padding:24px 16px;overflow-y:auto}
+.realoc-overlay.open{display:flex}
+.realoc-modal{background:#fff;border-radius:14px;width:100%;max-width:1100px;max-height:calc(100vh - 48px);display:flex;flex-direction:column;box-shadow:0 16px 48px rgba(0,0,0,.22)}
+.realoc-header{padding:18px 24px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;gap:12px;flex-shrink:0}
+.realoc-header h2{font-size:16px;font-weight:700;color:#1a1a2e;flex:1;margin:0}
+.realoc-header-meta{font-size:12px;color:#888}
+.realoc-body{flex:1;overflow-y:auto;padding:16px 24px}
+.realoc-controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px;padding:12px 16px;background:#f8f9fb;border-radius:8px;border:1px solid #e5e7eb}
+.realoc-table{width:100%;border-collapse:collapse;font-size:12px}
+.realoc-table th{text-align:left;padding:8px;color:#888;font-size:10px;text-transform:uppercase;letter-spacing:.4px;font-weight:600;border-bottom:2px solid #e5e7eb;white-space:nowrap}
+.realoc-table td{padding:8px;border-bottom:1px solid #f0f0f0;vertical-align:middle}
+.realoc-table tr:hover td{background:#f9fafb}
+.realoc-table tr.selected td{background:#EFF6FF}
+.realoc-table tr.cancelar-linha td{background:#FEF2F2;opacity:.7}
+.realoc-valor-input{width:130px;padding:5px 8px;font-size:12px;border:1px solid #ddd;border-radius:6px;text-align:right;font-variant-numeric:tabular-nums}
+.realoc-valor-input:focus{border-color:#185FA5;outline:none}
+.realoc-obs-input{width:160px;padding:5px 8px;font-size:12px;border:1px solid #ddd;border-radius:6px}
+.realoc-footer{padding:16px 24px;border-top:1px solid #e5e7eb;display:flex;align-items:center;gap:10px;justify-content:space-between;flex-shrink:0;flex-wrap:wrap}
+.realoc-footer-stats{font-size:12px;color:#666}
+.realoc-footer-actions{display:flex;gap:8px}
+.realoc-check{width:16px;height:16px;cursor:pointer;accent-color:#185FA5}
+
+/* ── Histórico realocações ────────────────────────────────────────────────── */
+.hist-badge{display:inline-block;font-size:10px;background:#E0F2FE;color:#0369A1;padding:1px 7px;border-radius:10px;font-weight:700}
+
+/* ── Popover detalhes ─────────────────────────────────────────────────────── */
+#detail-pop{position:fixed;z-index:9999;background:#fff;border:1px solid #e5e7eb;border-radius:12px;
+  box-shadow:0 8px 32px rgba(0,0,0,.15);min-width:320px;max-width:440px;display:none;overflow:hidden}
+#detail-pop.open{display:block}
+.dp-header{background:#1a1a2e;color:#fff;padding:10px 14px;display:flex;align-items:center;justify-content:space-between}
+.dp-header-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+.dp-header-total{font-size:13px;font-weight:700}
+.dp-close{background:none;border:none;color:#fff;cursor:pointer;font-size:16px;line-height:1;padding:0 2px}
+.dp-body{max-height:320px;overflow-y:auto}
+.dp-row{display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:8px;padding:7px 14px;border-bottom:1px solid #f0f0f0;font-size:12px}
+.dp-row:last-child{border-bottom:none}
+.dp-row:hover{background:#fafafa}
+.dp-folha{font-weight:600;color:#1a1a2e;font-size:11px}
+.dp-nf{font-size:11px;font-weight:700;color:#166534;background:#dcfce7;padding:1px 7px;border-radius:10px;white-space:nowrap}
+.dp-nf.sem{color:#9ca3af;background:#f3f4f6}
+.dp-val{font-weight:600;text-align:right;white-space:nowrap;color:#1a1a2e;font-variant-numeric:tabular-nums}
+.dp-footer{padding:8px 14px;background:#f9fafb;border-top:1px solid #e5e7eb;font-size:11px;color:#666;display:flex;justify-content:space-between}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>⚡ Energy — Faturamento</h1>
+  <div class="topbar-right">
+    <span class="user-badge">
+      <span class="online-dot" title="Conectado"></span>
+      👤 {{ nome }}
+      <span class="role-badge role-{{ role }}">{{ role|upper }}</span>
+    </span>
+    <div class="online-panel" id="online-panel">
+      <div class="online-count" onclick="toggleOnlineDropdown()" title="Usuários conectados agora">
+        <span class="dot"></span>
+        <span id="online-count-label">1 online</span>
+      </div>
+      <div class="online-dropdown" id="online-dropdown">
+        <div class="online-dropdown-header">Conectados agora</div>
+        <div id="online-list"></div>
+      </div>
+    </div>
+    {% if role == 'admin' %}
+    <button class="btn" style="font-size:12px;padding:5px 12px" onclick="openUsuarios()">⚙ Usuários</button>
+    {% endif %}
+    <a href="/logout"><button class="btn-logout">Sair</button></a>
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- ── ALERTA: PROVISÕES NÃO CUMPRIDAS ───────────────────────────────── -->
+  <div class="alerta-realoc" id="alerta-realoc">
+    <div class="alerta-realoc-icon">⚠️</div>
+    <div class="alerta-realoc-text">
+      <div class="alerta-realoc-title" id="alerta-realoc-title">Provisões não cumpridas de meses anteriores</div>
+      <div class="alerta-realoc-sub" id="alerta-realoc-sub">Clique para revisar e realocar para o mês atual</div>
+    </div>
+    <button class="btn-realoc" onclick="abrirRealocacao()">📋 Revisar e Realocar</button>
+  </div>
+
+  <!-- ── FILTRO GLOBAL DE MÊS (acima das abas) ───────────────────────────── -->
+  <div style="background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:10px 16px;margin-bottom:10px;display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+    <div style="font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap">📅 Competência</div>
+    <div class="mes-pills-row" id="dash-mes-pills" style="flex:1;min-width:0"></div>
+  </div>
+
+  <!-- ── NAVEGAÇÃO POR ABAS ─────────────────────────────────────────────── -->
+  <div class="tab-nav">
+    <button class="tab-btn active" id="tab-btn-dashboard" onclick="switchTab('dashboard')">
+      📊 Dashboard
+    </button>
+    <button class="tab-btn" id="tab-btn-provisao" onclick="switchTab('provisao')">
+      📋 Provisão
+    </button>
+    <button class="tab-btn" id="tab-btn-medido" onclick="switchTab('medido')">
+      📥 Medido
+    </button>
+    <button class="tab-btn" id="tab-btn-faturado" onclick="switchTab('faturado')">
+      🧾 Faturado
+    </button>
+    <button class="tab-btn" id="tab-btn-contratos" onclick="switchTab('contratos')">
+      📁 Contratos
+    </button>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <!-- ABA: DASHBOARD                                                         -->
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <div class="tab-pane active" id="tab-dashboard">
+
+    <!-- ── Comparar com (só no dashboard) ─────────────────────────────────── -->
+    <div id="dash-comp-wrap" style="display:none;background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:10px 16px;margin-bottom:14px">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <div style="font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap">Comparar com:</div>
+        <div class="mes-pills-row" id="dash-comp-pills"></div>
+        <button class="btn sm" onclick="limparComparacao()" id="btn-limpar-comp" style="display:none;font-size:11px">✕ Sem comparação</button>
+      </div>
+    </div>
+
+    <!-- ── Números (filtrados pelo mês selecionado) ────────────────────────── -->
+    <div class="geral-grid" id="dash-geral"></div>
+
+    <!-- ── KPIs de comparação (só aparecem com mês de comparação ativo) ──────── -->
+    <div id="dash-kpis" style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:14px"></div>
+
+    <!-- ── (comparativo integrado nos KPIs, sem bloco separado) ─────────────── -->
+    <div id="dash-comparativo" style="margin-bottom:0"></div>
+
+    <!-- ── Linha: donut + evolução mensal ─────────────────────────────────── -->
+    <div class="dash-grid" style="margin-bottom:14px">
+      <div class="chart-card">
+        <div class="chart-title">Distribuição <span id="donut-mes-label" style="font-size:11px;font-weight:400;color:#888"></span></div>
+        <div style="display:flex;align-items:center;gap:20px">
+          <div style="width:160px;height:160px;flex-shrink:0"><canvas id="chart-donut"></canvas></div>
+          <div id="donut-legend" style="flex:1"></div>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Evolução mensal <span style="font-size:11px;font-weight:400;color:#888">— clique para selecionar</span></div>
+        <div style="height:190px"><canvas id="chart-mensal"></canvas></div>
+      </div>
+    </div>
+
+    <!-- ── Dados dos contratos ─────────────────────────────────────────────── -->
+    <div class="section" style="margin-bottom:14px">
+      <div class="section-header">
+        <span class="section-title">📁 Contratos <span id="dash-ctr-label" style="font-size:12px;color:#888;font-weight:400"></span></span>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="dash-ctr-table">
+          <thead><tr>
+            <th>Contrato</th>
+            <th class="currency">Saldo</th>
+            <th class="currency">Provisão</th>
+            <th class="currency">Medido</th>
+            <th class="currency">Faturado (NF)</th>
+            <th class="currency">Restante saldo</th>
+            <th style="min-width:100px">% Medido</th>
+          </tr></thead>
+          <tbody id="dash-ctr-tbody"></tbody>
+        </table>
+        <div id="dash-ctr-empty" class="empty" style="display:none">Sem dados de contratos.</div>
+      </div>
+    </div>
+
+    <!-- ── KPI gestores ────────────────────────────────────────────────────── -->
+    <div class="chart-card" style="margin-bottom:14px">
+      <div class="chart-title">👤 KPI por gestor <span style="font-size:11px;font-weight:400;color:#888">— clique para filtrar</span></div>
+      <div id="dash-gestores"></div>
+    </div>
+
+    <!-- ── Folhas pendentes ────────────────────────────────────────────────── -->
+    <div class="section" style="margin-bottom:0">
+      <div class="section-header">
+        <span class="section-title">⚠️ Folhas sem vínculo <span id="dash-pendentes-count" style="font-size:12px;color:#888;font-weight:400"></span></span>
+        <button class="btn sm" onclick="switchTab('medido')">Ver todas →</button>
+      </div>
+      <div style="overflow-x:auto">
+        <table>
+          <thead><tr>
+            <th>Nº Folha</th><th>Contrato</th><th>Município</th>
+            <th>Período</th><th class="currency">Valor (R$)</th><th>Recebido em</th>
+          </tr></thead>
+          <tbody id="dash-pendentes-tbody"></tbody>
+        </table>
+        <div id="dash-pendentes-empty" class="empty" style="display:none">Todas as folhas estão vinculadas! ✅</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <!-- ABA: PROVISÃO                                                          -->
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <div class="tab-pane" id="tab-provisao">
+    <div class="section" style="margin-bottom:0">
+      <div class="section-header">
+        <span class="section-title">Medições por obra</span>
+        <div class="controls">
+          <select id="sel-comp" onchange="applyFilters()" style="font-weight:600;color:#185FA5">
+            <option value="">Todas competências</option>
+          </select>
+          <select id="sel-empresa" onchange="applyFilters()">
+            <option value="">Todas empresas</option>
+            <option value="ENERGY CONSTRUÇÕES">Energy Construções</option>
+            <option value="ENERGY SERVIÇOS">Energy Serviços</option>
+          </select>
+          <select id="sel-gestor" onchange="applyFilters()">
+            <option value="">Todos gestores</option>
+          </select>
+          <input type="text" id="search" placeholder="Buscar obra..." oninput="applyFilters()" style="width:180px">
+          <button class="btn primary" onclick="openModal()">+ Nova linha</button>
+          <button class="btn danger prominent" id="btn-del-selected" onclick="delSelected()" disabled>🗑 Solicitar exclusão</button>
+          <button class="btn" onclick="document.getElementById('file-import').click()">⬆ Importar Modelo</button>
+          <input type="file" id="file-import" accept=".xlsx" style="display:none" onchange="iniciarImport(event)">
+          <a href="/api/exportar" class="btn">⬇ Exportar XLS</a>
+        </div>
+      </div>
+      <div class="empresa-bar">
+        <button class="emp-btn active-all" onclick="setEmpresa('')">Todas</button>
+        <button class="emp-btn" onclick="setEmpresa('ENERGY CONSTRUÇÕES')">🏗 Energy Construções</button>
+        <button class="emp-btn" onclick="setEmpresa('ENERGY SERVIÇOS')">⚙️ Energy Serviços</button>
+      </div>
+      <div class="filter-bar" id="filter-bar"></div>
+      <div style="overflow-x:auto">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:28px"></th>
+              <th style="width:4px;padding:0"></th>
+              <th>Centro de Custo / Obra</th>
+              <th>Emp.</th>
+              <th>Contrato</th>
+              <th>Gestor</th>
+              <th>Competência</th>
+              <th class="currency">Provisão (R$)</th>
+              <th class="currency">Medido (R$)</th>
+              <th class="currency">Faturado (R$)</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+        <div id="empty-state" class="empty" style="display:none">Nenhuma medição encontrada.</div>
+      </div>
+    </div>
+
+    <!-- Seções admin dentro da aba Provisão -->
+    <div class="section" id="minhas-solicitacoes-section" style="display:none;margin-top:14px">
+      <div class="section-header">
+        <span class="section-title">📋 Minhas solicitações de edição</span>
+        <button class="btn" onclick="loadMinhasSolicitacoes()">🔄 Atualizar</button>
+      </div>
+      <div id="minhas-solicitacoes"></div>
+    </div>
+    <div class="section" id="edit-requests-section" style="display:none;margin-top:14px">
+      <div class="section-header"><span class="section-title">✏️ Aprovações de edição</span></div>
+      <div id="edit-requests"></div>
+    </div>
+    <div class="section" id="delete-requests-section" style="display:none;margin-top:14px">
+      <div class="section-header"><span class="section-title">🗑 Aprovações de exclusão</span></div>
+      <div id="delete-requests"></div>
+    </div>
+    {% if role == 'admin' %}
+    <div class="section" id="usuarios-section" style="display:none;margin-top:14px">
+      <div class="section-header">
+        <span class="section-title">👥 Gerenciar usuários</span>
+        <div class="controls">
+          <button class="btn primary" onclick="openNovoUsuario()">+ Novo usuário</button>
+          <button class="btn" onclick="loadUsuarios()">🔄 Atualizar</button>
+        </div>
+      </div>
+      <div id="usuarios-container"></div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <!-- ABA: MEDIDO                                                            -->
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <div class="tab-pane" id="tab-medido">
+    <div class="section" style="margin-bottom:0">
+      <div class="section-header">
+        <span class="section-title">📥 Medições recebidas via e-mail</span>
+        <div class="controls">
+          <select id="fol-contrato" onchange="renderFolhas()"><option value="">Todos contratos</option></select>
+          <select id="fol-periodo" onchange="renderFolhas()"><option value="">Todos períodos</option></select>
+          <select id="fol-vinculo" onchange="renderFolhas()">
+            <option value="">Todas</option>
+            <option value="nova">Não vinculadas</option>
+            <option value="vinculada">Vinculadas</option>
+          </select>
+          <input type="text" id="fol-search" placeholder="Buscar nº folha, município..." oninput="renderFolhas()" style="width:210px">
+          <button class="btn" onclick="loadFolhas()">🔄 Atualizar</button>
+          <button class="btn" onclick="preencherDatas(this)" title="Extrai DATA/HORA dos PDFs e preenche datas em falta">📅 Preencher datas</button>
+        </div>
+      </div>
+      <div id="folhas-metrics" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:1rem"></div>
+      <div style="overflow-x:auto">
+        <table>
+          <thead>
+            <tr>
+              <th>Nº Folha</th>
+              <th>Contrato</th>
+              <th>Período</th>
+              <th>Município</th>
+              <th>Valor Total (R$)</th>
+              <th>Recebido em</th>
+              <th>Vínculo</th>
+              <th style="min-width:240px">Vincular a obra</th>
+            </tr>
+          </thead>
+          <tbody id="tbody-folhas"></tbody>
+        </table>
+        <div id="empty-folhas" class="empty" style="display:none">Nenhuma medição recebida encontrada.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <!-- ABA: FATURADO                                                          -->
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <div class="tab-pane" id="tab-faturado">
+    <div class="section" style="margin-bottom:0">
+      <div class="section-header">
+        <span class="section-title">🧾 Folhas de Medição</span>
+        <div class="controls">
+          <select id="fat-contrato" onchange="renderFaturado()"><option value="">Todos contratos</option></select>
+          <select id="fat-periodo" onchange="renderFaturado()"><option value="">Todos períodos</option></select>
+          <select id="fat-vinculo" onchange="renderFaturado()">
+            <option value="">Todas</option>
+            <option value="nova">Não vinculadas</option>
+            <option value="vinculada">Vinculadas</option>
+          </select>
+          <select id="fat-nf" onchange="renderFaturado()">
+            <option value="">Todas</option>
+            <option value="com">Com NF</option>
+            <option value="sem">Sem NF</option>
+          </select>
+          <input type="text" id="fat-search" placeholder="Buscar folha, município..." oninput="renderFaturado()" style="width:190px">
+          <button class="btn" onclick="loadFolhas();renderFaturado()">🔄 Atualizar</button>
+          <button id="btn-escanear" class="btn primary" onclick="escanearNFsTab()" title="Escanear pasta de NFs">🔍 Escanear NFs</button>
+        </div>
+      </div>
+      <div class="cards-grid" id="fat-metrics" style="margin-bottom:1rem"></div>
+      <div style="overflow-x:auto">
+        <table>
+          <thead><tr>
+            <th>Nº Folha</th>
+            <th>Contrato</th>
+            <th>Período</th>
+            <th>Município</th>
+            <th>Fornecedor</th>
+            <th class="currency">Valor Total (R$)</th>
+            <th>Recebido em</th>
+            <th>NF</th>
+            <th>Vínculo</th>
+          </tr></thead>
+          <tbody id="tbody-faturado"></tbody>
+        </table>
+        <div id="empty-faturado" class="empty" style="display:none">Nenhuma folha encontrada.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <!-- ABA: CONTRATOS                                                         -->
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <div class="tab-pane" id="tab-contratos">
+    <div class="section">
+      <div class="section-header">
+        <span class="section-title">Resumo por contrato</span>
+        <div class="controls">
+          <select id="res-empresa" onchange="renderResumo()">
+            <option value="">Todas empresas</option>
+            <option value="ENERGY CONSTRUÇÕES">Energy Construções</option>
+            <option value="ENERGY SERVIÇOS">Energy Serviços</option>
+          </select>
+          <select id="res-contrato" onchange="renderResumo()">
+            <option value="">Todos contratos</option>
+          </select>
+        </div>
+      </div>
+      <div id="resumo"></div>
+    </div>
+    <div class="section" style="margin-bottom:0">
+      <div class="section-header">
+        <span class="section-title">Visão mensal — por competência</span>
+        <div class="controls">
+          <select id="men-empresa" onchange="renderMensal()">
+            <option value="">Todas empresas</option>
+            <option value="ENERGY CONSTRUÇÕES">Energy Construções</option>
+            <option value="ENERGY SERVIÇOS">Energy Serviços</option>
+          </select>
+          <select id="men-contrato" onchange="renderMensal()">
+            <option value="">Todos contratos</option>
+          </select>
+          <select id="men-modo" onchange="renderMensal()">
+            <option value="ambos">Provisão + Recebido + Aprovado</option>
+            <option value="provisao">Só provisão</option>
+            <option value="medicao">Só medição</option>
+          </select>
+        </div>
+      </div>
+      <div id="mensal"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── Modal: nova / editar provisão ──────────────────────────────────────── -->
+<div class="overlay" id="overlay" onclick="closeOnOverlay(event)">
+  <div class="modal">
+    <h2 id="modal-title">Nova provisão</h2>
+
+    <!-- Linha 1: Empresa + Gestor -->
+    <div class="grid2">
+      <div class="field"><label>Empresa</label>
+        <select id="f-empresa" onchange="onModalEmpresaChange()">
+          <option value="ENERGY CONSTRUÇÕES">Energy Construções</option>
+          <option value="ENERGY SERVIÇOS">Energy Serviços</option>
+        </select>
+      </div>
+      <div class="field"><label>Gestor</label>
+        <select id="f-gestor"></select>
+      </div>
+    </div>
+
+    <!-- Linha 2: Contrato (custom dropdown com badge ES/EC) -->
+    <div class="field"><label>Contrato</label>
+      <div class="csel-wrap" id="contrato-wrap">
+        <div class="csel-btn" id="contrato-btn" onclick="cselToggle('contrato')">
+          <span id="contrato-display" class="csel-placeholder">Selecione o contrato...</span>
+          <span class="csel-arrow">▾</span>
+        </div>
+        <div class="csel-panel" id="contrato-panel" style="display:none">
+          <div class="csel-list" id="contrato-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Linha 3: Centro de custo (custom dropdown com busca) -->
+    <div class="field"><label>Centro de custo</label>
+      <div class="csel-wrap" id="cc-wrap">
+        <div class="csel-btn" id="cc-btn" onclick="cselToggle('cc')">
+          <span id="cc-display" class="csel-placeholder">Selecione o centro de custo...</span>
+          <span class="csel-arrow">▾</span>
+        </div>
+        <div class="csel-panel" id="cc-panel" style="display:none">
+          <input class="csel-search" id="cc-search" type="text" placeholder="🔍  Filtrar por código ou nome..." oninput="cselFiltrarCC()">
+          <div class="csel-list" id="cc-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Linha 4: Obra (texto, preenchido pelo CC mas editável) -->
+    <div class="field"><label>Obra / Descrição</label>
+      <input type="text" id="f-obra" placeholder="Preenchido automaticamente ou digite manualmente">
+    </div>
+
+    <!-- Linha 5: Competência + Provisão -->
+    <div class="grid2">
+      <div class="field"><label>Competência</label>
+        <input type="month" id="f-comp">
+      </div>
+      <div class="field"><label>Valor provisão (R$)</label>
+        <input type="number" id="f-provisao" placeholder="0,00" min="0" step="0.01">
+      </div>
+    </div>
+
+    <!-- Campos ocultos para compatibilidade com o backend -->
+    <input type="hidden" id="f-cnum">
+    <input type="hidden" id="f-cnome">
+    <input type="hidden" id="f-cod">
+    <input type="hidden" id="f-medicao" value="">
+    <input type="hidden" id="f-pedido" value="">
+    <input type="hidden" id="f-folha" value="">
+    <input type="hidden" id="f-nf" value="">
+    <input type="hidden" id="f-venc" value="">
+    <input type="hidden" id="f-ret" value="">
+    <input type="hidden" id="f-imp" value="">
+    <input type="hidden" id="f-status" value="previsto">
+    <input type="hidden" id="f-obs" value="">
+
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal()">Cancelar</button>
+      <button class="btn primary" onclick="salvar()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal: saldo do contrato ──────────────────────────────────────────── -->
+<div class="overlay" id="overlay-saldo" onclick="if(event.target===this)closeSaldo()">
+  <div class="modal" style="width:420px">
+    <h2>Editar saldo do contrato</h2>
+    <div class="field"><label>Nº do contrato</label><input type="text" id="s-num" readonly style="background:#f5f5f5"></div>
+    <div class="field"><label>Nome do contrato</label><input type="text" id="s-nome"></div>
+    <div class="field"><label>Saldo disponível (R$)</label><input type="number" id="s-saldo" min="0" step="0.01"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeSaldo()">Cancelar</button>
+      <button class="btn primary" onclick="salvarSaldo()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal: usuário ────────────────────────────────────────────────────── -->
+<div class="overlay" id="overlay-usuario" onclick="if(event.target===this)closeUsuarioModal()">
+  <div class="modal" style="width:440px">
+    <h2 id="u-modal-title">Novo usuário</h2>
+    <div class="grid2">
+      <div class="field"><label>Username (login)</label><input type="text" id="u-username" placeholder="Ex: joao.silva" autocomplete="off"></div>
+      <div class="field"><label>Nome completo</label><input type="text" id="u-nome" placeholder="Ex: João Silva"></div>
+    </div>
+    <div class="field"><label>Email <span style="font-weight:400;color:#999">(usado para recuperação de senha)</span></label><input type="email" id="u-email" placeholder="Ex: joao.silva@empresa.com" autocomplete="off"></div>
+    <div class="grid2">
+      <div class="field"><label>Senha</label><input type="password" id="u-password" placeholder="Mínimo 6 caracteres" autocomplete="new-password"></div>
+      <div class="field"><label>Confirmar senha</label><input type="password" id="u-password2" placeholder="Repita a senha"></div>
+    </div>
+    <div class="grid2">
+      <div class="field"><label>Perfil / Role</label>
+        <select id="u-role">
+          <option value="engenharia">Engenharia</option>
+          <option value="financeiro">Financeiro</option>
+          <option value="admin">Admin</option>
+        </select>
+      </div>
+      <div class="field"><label>Status</label>
+        <select id="u-ativo">
+          <option value="1">Ativo</option>
+          <option value="0">Inativo</option>
+        </select>
+      </div>
+    </div>
+    <p style="font-size:11px;color:#999;margin-top:-4px" id="u-pwd-hint">Deixe a senha em branco para manter a atual (apenas ao editar).</p>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeUsuarioModal()">Cancelar</button>
+      <button class="btn primary" onclick="salvarUsuario()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Popover: detalhes folhas/NFs ──────────────────────────────────────── -->
+<div id="detail-pop">
+  <div class="dp-header">
+    <span class="dp-header-title" id="dp-title">Detalhes</span>
+    <span class="dp-header-total" id="dp-total"></span>
+    <button class="dp-close" onclick="closePop()">✕</button>
+  </div>
+  <div class="dp-body" id="dp-body"></div>
+  <div class="dp-footer" id="dp-footer"></div>
+</div>
+
+<!-- ── Modal: importação ──────────────────────────────────────────────────── -->
+<div class="overlay" id="overlay-import" onclick="closeImportOnOverlay(event)">
+  <div class="modal" style="width:700px">
+    <h2 id="import-title">Importar Modelo de Medições</h2>
+    <div id="import-body"><p style="color:#666;font-size:13px">Carregando prévia...</p></div>
+    <div class="modal-actions" id="import-actions">
+      <button class="btn" onclick="closeImport()">Cancelar</button>
+      <button class="btn primary" id="btn-confirmar-import" onclick="confirmarImport()" disabled>Confirmar importação</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const STATUS_MAP={
+  previsto:{label:'Previsão',cls:'b-prev'},
+  medicao:{label:'Medição recebida',cls:'b-med'},
+  validado:{label:'Validado',cls:'b-val'},
+  aprovado:{label:'Aprovado',cls:'b-apr'},
+  nf_emitida:{label:'NF emitida',cls:'b-nf'}
+};
+
+let data=[], saldos={}, folhas=[], editId=null, filterStatus='todos', filtered=[];
+let selectedIds=new Set();
+
+function fmt(v){return Number(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function fmtDate(d){if(!d)return'—';try{const[y,m,dd]=(d+'').split('-');return`${dd}/${m}/${y}`;}catch{return d;}}
+function compLabel(c){if(!c)return'—';const[y,m]=c.split('-');const ms=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];return`${ms[parseInt(m)-1]}/${y}`;}
+function escQ(s){return String(s||'').replace(/'/g,"&#39;").replace(/"/g,'&quot;');}
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2800);}
+
+// ── Navegação por abas ────────────────────────────────────────────────────
+
+let activeTab='dashboard';
+const TABS=['dashboard','provisao','medido','faturado','contratos'];
+
+function syncGlobalMes(){
+  // Sincroniza o filtro global de mês para os selects das abas filhas
+  const v=dashCompSel||'';
+  const selComp=document.getElementById('sel-comp');
+  if(selComp&&selComp.value!==v) selComp.value=v;
+  const folPeriodo=document.getElementById('fol-periodo');
+  if(folPeriodo&&folPeriodo.value!==v) folPeriodo.value=v;
+  const fatPeriodo=document.getElementById('fat-periodo');
+  if(fatPeriodo&&fatPeriodo.value!==v) fatPeriodo.value=v;
+}
+
+function switchTab(tab){
+  activeTab=tab;
+  TABS.forEach(t=>{
+    document.getElementById('tab-'+t).classList.toggle('active',t===tab);
+    document.getElementById('tab-btn-'+t).classList.toggle('active',t===tab);
+  });
+  syncGlobalMes();
+  if(tab==='dashboard')renderDashboard();
+  if(tab==='provisao')applyFilters();
+  if(tab==='medido'){if(!folhas.length)loadFolhas();else renderFolhas();}
+  if(tab==='faturado'){if(!folhas.length)loadFolhas();else renderFaturado();}
+  if(tab==='contratos'){renderResumo();renderMensal();}
+}
+
+// ── Aba Faturado ──────────────────────────────────────────────────────────
+
+function renderFaturado(){
+  const ctrFil=document.getElementById('fat-contrato').value;
+  const perFil=document.getElementById('fat-periodo').value;
+  const vinFil=document.getElementById('fat-vinculo').value;
+  const nfFil=document.getElementById('fat-nf').value;
+  const q=(document.getElementById('fat-search').value||'').toLowerCase();
+
+  // Construir mapa de vínculos e NF por folha
+  const vinculadas=new Set([
+    ...data.map(m=>m.pedido).filter(Boolean),
+    ...data.flatMap(m=>(m.folhas_vinculadas||[]).map(lk=>lk.n_folha))
+  ]);
+  const folhaNF={};
+  data.forEach(m=>(m.folhas_vinculadas||[]).forEach(lk=>{if(lk.nf)folhaNF[lk.n_folha]=lk.nf;}));
+
+  // Atualizar dropdowns
+  const allCtrs=[...new Set(folhas.map(f=>f.n_contrato).filter(Boolean))].sort();
+  const allPers=[...new Set(folhas.map(f=>f.periodo).filter(Boolean))].sort();
+  const selC=document.getElementById('fat-contrato');
+  const selP=document.getElementById('fat-periodo');
+  const curC=selC.value, curP=selP.value;
+  selC.innerHTML='<option value="">Todos contratos</option>'+allCtrs.map(c=>`<option value="${c}">${c}${saldos[c]?' — '+saldos[c].nome:''}</option>`).join('');
+  selP.innerHTML='<option value="">Todos períodos</option>'+allPers.map(p=>`<option value="${p}">${compLabel(p)}</option>`).join('');
+  selC.value=curC; selP.value=curP;
+
+  // Filtrar
+  let rows=folhas.filter(f=>{
+    const isVinc=vinculadas.has(f.n_folha);
+    const temNF=!!folhaNF[f.n_folha];
+    if(ctrFil&&f.n_contrato!==ctrFil)return false;
+    if(perFil&&f.periodo!==perFil)return false;
+    if(vinFil==='nova'&&isVinc)return false;
+    if(vinFil==='vinculada'&&!isVinc)return false;
+    if(nfFil==='com'&&!temNF)return false;
+    if(nfFil==='sem'&&temNF)return false;
+    if(q&&!(f.n_folha+f.n_contrato+(f.municipio||'')+(f.fornecedor||'')).toLowerCase().includes(q))return false;
+    return true;
+  });
+
+  // Métricas
+  const totalVal=rows.reduce((a,f)=>a+f.valor_total,0);
+  const comNF=rows.filter(f=>folhaNF[f.n_folha]).length;
+  const semNF=rows.filter(f=>!folhaNF[f.n_folha]).length;
+  const vincCount=rows.filter(f=>vinculadas.has(f.n_folha)).length;
+  document.getElementById('fat-metrics').innerHTML=`
+    <div class="metric"><div class="metric-label">Valor total</div><div class="metric-value warn currency" style="font-size:16px">R$ ${fmt(totalVal)}</div></div>
+    <div class="metric"><div class="metric-label">Folhas</div><div class="metric-value" style="font-size:16px">${rows.length}</div></div>
+    <div class="metric"><div class="metric-label">Com NF emitida</div><div class="metric-value success" style="font-size:16px">${comNF}</div></div>
+    <div class="metric"><div class="metric-label">Sem NF</div><div class="metric-value ${semNF>0?'danger':''}" style="font-size:16px">${semNF}</div><div class="metric-sub">aguardando emissão</div></div>
+  `;
+
+  // Tabela
+  const tbody=document.getElementById('tbody-faturado');
+  const empty=document.getElementById('empty-faturado');
+  if(!rows.length){tbody.innerHTML='';empty.style.display='block';return;}
+  empty.style.display='none';
+  tbody.innerHTML=rows.map(f=>{
+    const isVinc=vinculadas.has(f.n_folha);
+    const nf=folhaNF[f.n_folha];
+    return`<tr style="${isVinc?nf?'background:#f0fdf4':'':'background:#fff8e1'}">
+      <td style="font-weight:700;font-size:12px">${f.n_folha}</td>
+      <td style="font-size:11px;white-space:nowrap">${f.n_contrato||'—'}<br><span style="color:#999;font-size:10px">${saldos[f.n_contrato]?.nome||''}</span></td>
+      <td style="font-size:11px;white-space:nowrap">${compLabel(f.periodo)}</td>
+      <td style="font-size:11px">${f.municipio||'—'}</td>
+      <td style="font-size:11px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.fornecedor||'—'}</td>
+      <td class="currency" style="font-weight:700;white-space:nowrap">R$ ${fmt(f.valor_total)}</td>
+      <td style="font-size:11px;white-space:nowrap">${f.data_recebimento||'—'}</td>
+      <td style="font-size:11px;font-weight:700;white-space:nowrap">${nf?`<span style="color:#166534;background:#dcfce7;padding:2px 8px;border-radius:10px;font-size:11px">NF-${nf}</span>`:'<span style="color:#9ca3af">—</span>'}</td>
+      <td>${isVinc?'<span class="badge b-ok">Vinculada</span>':'<span class="badge b-atras">Não vinculada</span>'}</td>
+    </tr>`;
+  }).join('');
+}
+
+async function preencherDatas(btn){
+  btn.disabled=true;btn.textContent='⏳ Extraindo...';
+  try{
+    const r=await fetch('/api/preencher-datas',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({})});
+    const d=await r.json();
+    if(d.erro){alert('Erro: '+d.erro);return;}
+    let msg=`✅ Concluído!\n\n${d.atualizadas} data(s) preenchida(s)`;
+    if(d.erros>0)msg+=`\n⚠️ ${d.erros} arquivo(s) não encontrado(s) ou sem DATA/HORA`;
+    if(d.detalhes?.length){
+      msg+='\n\nDatas preenchidas:\n';
+      msg+=d.detalhes.slice(0,10).map(x=>`  • Folha ${x.folha} → ${x.data}${x.fonte?' (pasta)':''}`).join('\n');
+      if(d.detalhes.length>10)msg+=`\n  ... e mais ${d.detalhes.length-10}`;
+    }
+    alert(msg);
+    await loadFolhas();
+  }catch(e){alert('Erro: '+e);}
+  finally{btn.disabled=false;btn.textContent='📅 Preencher datas';}
+}
+
+function escanearNFsTab(){
+  document.getElementById('modal-nf-scan').style.display='flex';
+}
+function fecharModalScan(){
+  document.getElementById('modal-nf-scan').style.display='none';
+}
+async function confirmarScan(){
+  const pastas=[
+    document.getElementById('scan-pasta1').value.trim(),
+    document.getElementById('scan-pasta2').value.trim()
+  ].filter(Boolean);
+  if(!pastas.length){alert('Informe ao menos um caminho.');return;}
+  fecharModalScan();
+  const btn=document.getElementById('btn-escanear');
+  btn.disabled=true;btn.textContent='⏳ Escaneando...';
+  try{
+    const r=await fetch('/api/escanear-nfs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pastas})});
+    const d=await r.json();
+    if(d.erro){
+      // Erro com diagnóstico detalhado
+      let msg='❌ '+d.erro;
+      if((d.pastas_erro||[]).length){
+        msg+='\n\nCaminhos tentados:\n  • '+d.pastas_erro.join('\n  • ');
+        msg+='\n\nDica: verifique se o compartilhamento está conectado no Finder\n(Menu Ir → Conectar ao Servidor → smb://192.168.1.10)';
+      }
+      alert(msg);
+      return;
+    }
+    const pastasOk=(d.pastas_ok||[]).map(p=>p.split('/').slice(-3).join('/')).join('\n  • ');
+    const pastasErro=(d.pastas_erro||[]).length?'\n\n⚠️ Não acessíveis:\n  • '+(d.pastas_erro||[]).map(p=>p.split('/').slice(-3).join('/')).join('\n  • '):'';
+    alert(`✅ Concluído!\n\n${d.atualizadas} folha(s) vinculada(s)\n${d.mapa_encontrado} arquivos lidos\n\nPastas:\n  • ${pastasOk}${pastasErro}`);
+    await load();renderFaturado();
+  }catch(e){alert('Erro: '+e);}
+  finally{btn.disabled=false;btn.textContent='🔍 Escanear NFs';}
+}
+
+// ── Dashboard ─────────────────────────────────────────────────────────────
+
+let chartDonut=null, chartContratos=null, chartMensal=null;
+let dashCompSel=null, dashCompComp='';   // null = Todos, string = mês selecionado
+
+// ── Renderiza só os pills globais (independente da aba ativa) ─────────────
+function renderMesPills(){
+  if(!data.length)return;
+  const allComps=[...new Set(data.map(i=>i.comp).filter(Boolean))].sort();
+  const compSel=dashCompSel;
+  const pillsEl=document.getElementById('dash-mes-pills');
+  if(!pillsEl)return;
+  pillsEl.innerHTML=allComps.map(c=>
+    `<button class="mes-pill ${c===compSel?'active':''}" onclick="selecionarMes('${c}')">${compLabel(c)}</button>`
+  ).join('')+`<span class="pill-sep"></span><button class="mes-pill ${compSel===null?'active':''}" onclick="selecionarMes(null)" style="font-size:11px">Todos</button>`;
+}
+
+function selecionarMes(comp){
+  // comp===null significa "Todos"; toggle: se já está selecionado vira null (Todos)
+  if(comp===null || comp===''){
+    dashCompSel=null;
+  } else {
+    dashCompSel = (dashCompSel===comp) ? null : comp;
+  }
+  // Se o novo mês = mês de comparação, limpa comparação
+  if(dashCompSel!==null && dashCompSel===dashCompComp) dashCompComp='';
+
+  // Sempre re-renderiza os pills globais para atualizar a cor ativa
+  renderMesPills();
+
+  // Propagar filtro para os selects das abas filhas
+  const selComp=document.getElementById('sel-comp');
+  if(selComp) selComp.value=dashCompSel||'';
+  const folPeriodo=document.getElementById('fol-periodo');
+  if(folPeriodo) folPeriodo.value=dashCompSel||'';
+  const fatPeriodo=document.getElementById('fat-periodo');
+  if(fatPeriodo) fatPeriodo.value=dashCompSel||'';
+
+  // Renderizar a aba ativa correta
+  if(activeTab==='dashboard') renderDashboard();
+  else if(activeTab==='provisao'){ applyFilters(); }
+  else if(activeTab==='medido'){ renderFolhas(); }
+  else if(activeTab==='faturado'){ renderFaturado(); }
+  else if(activeTab==='contratos'){ renderResumo(); renderMensal(); }
+  else renderDashboard();
+}
+
+function selecionarComparacao(comp){
+  dashCompComp = (dashCompComp===comp) ? '' : comp;
+  renderDashboard();
+}
+
+function limparComparacao(){
+  dashCompComp='';
+  renderDashboard();
+}
+
+function calcMes(items, folhasArr, compFil){
+  const d=compFil?items.filter(i=>i.comp===compFil):items;
+  const prov=d.reduce((a,i)=>a+Number(i.provisao||0),0);
+  const med=d.reduce((a,i)=>{
+    const lks=i.folhas_vinculadas||[];
+    const v=lks.reduce((s,l)=>s+Number(l.valor||0),0)||Number(i.medicao||0);
+    return a+(lks.length||i.medicao?v:0);
+  },0);
+  const fat=d.reduce((a,i)=>a+(i.folhas_vinculadas||[]).filter(l=>l.nf).reduce((s,l)=>s+Number(l.valor||0),0),0);
+  // folhas do período
+  const folhasPer=compFil?folhasArr.filter(f=>f.periodo===compFil):folhasArr;
+  const naoVinc=folhasPer.filter(f=>!items.some(it=>(it.folhas_vinculadas||[]).some(l=>l.n_folha===f.n_folha)));
+  return{prov,med,fat,naoVinc:naoVinc.length,vlNaoVinc:naoVinc.reduce((a,f)=>a+Number(f.valor_total||0),0),folhas:folhasPer};
+}
+
+function mesAnterior(comp){
+  if(!comp)return null;
+  const [y,m]=comp.split('-').map(Number);
+  if(m===1)return`${y-1}-12`;
+  return`${y}-${String(m-1).padStart(2,'0')}`;
+}
+
+function renderDashboard(){
+  if(!data.length)return;
+
+  // ── Meses disponíveis
+  const allComps=[...new Set(data.map(i=>i.comp).filter(Boolean))].sort();
+
+  // Default: seleciona mês mais recente se nunca foi inicializado (null = uninitialized first load)
+  if(dashCompSel===null && typeof dashCompInitialized==='undefined'){
+    window.dashCompInitialized=true;
+    const hoje=new Date();
+    const mesAtual=`${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}`;
+    dashCompSel=allComps.includes(mesAtual)?mesAtual:(allComps[allComps.length-1]||null);
+  }
+  const compSel=dashCompSel;      // null = Todos, string = mês específico
+  const compComp=dashCompComp;
+
+  // ── Pills mês principal (via função reutilizável)
+  renderMesPills();
+
+  // ── Pills mês de comparação
+  const compWrap=document.getElementById('dash-comp-wrap');
+  compWrap.style.display=compSel?'block':'none';
+  const compPillsEl=document.getElementById('dash-comp-pills');
+  compPillsEl.innerHTML=allComps.filter(c=>c!==compSel).map(c=>
+    `<button class="mes-pill ${c===compComp?'comp-sel':''}" onclick="selecionarComparacao('${c}')" style="font-size:11px;padding:4px 12px">${compLabel(c)}</button>`
+  ).join('');
+  const btnLimpar=document.getElementById('btn-limpar-comp');
+  if(btnLimpar) btnLimpar.style.display=compComp?'inline-flex':'none';
+
+  // ── Dados computados
+  const cur=calcMes(data,folhas,compSel);
+  const cmp=compComp?calcMes(data,folhas,compComp):null;
+  const dataFil=compSel?data.filter(i=>i.comp===compSel):data;
+  const naoVincFolhas=compSel
+    ?folhas.filter(f=>f.periodo===compSel&&!data.some(d=>(d.folhas_vinculadas||[]).some(l=>l.n_folha===f.n_folha)))
+    :folhas.filter(f=>!data.some(d=>(d.folhas_vinculadas||[]).some(l=>l.n_folha===f.n_folha)));
+  const vlNaoVinc=naoVincFolhas.reduce((a,f)=>a+Number(f.valor_total||0),0);
+  const totalFaturado=cur.fat;
+  const totalMedido=cur.med;
+  const vlSemNF=Math.max(0,totalMedido-totalFaturado);
+  const totalFolhas=cur.folhas.reduce((a,f)=>a+Number(f.valor_total||0),0);
+
+  // ── Números gerais (filtrados pelo mês selecionado)
+  const nCtrs=Object.keys(saldos).length||[...new Set(data.map(i=>i.contrato_num).filter(Boolean))].length;
+  const nObras=[...new Set(dataFil.map(i=>i.obra).filter(Boolean))].length;
+  const rotulo=compSel?compLabel(compSel):'acumulado geral';
+  document.getElementById('dash-geral').innerHTML=`
+    <div class="geral-card">
+      <div class="geral-label">Provisão — ${rotulo}</div>
+      <div class="geral-val currency">R$ ${fmt(cur.prov)}</div>
+      <div class="geral-sub">${nObras} obra${nObras!==1?'s':''} · ${nCtrs} contratos</div>
+    </div>
+    <div class="geral-card">
+      <div class="geral-label">Medido — ${rotulo}</div>
+      <div class="geral-val currency" style="color:#185FA5">R$ ${fmt(cur.med+cur.vlNaoVinc)}</div>
+      <div class="geral-sub">${cur.prov>0?Math.round((cur.med+cur.vlNaoVinc)/cur.prov*100):0}% da provisão${cur.vlNaoVinc>0?` · R$ ${fmt(cur.vlNaoVinc)} s/ obra`:''}</div>
+    </div>
+    <div class="geral-card">
+      <div class="geral-label">Faturado (NF) — ${rotulo}</div>
+      <div class="geral-val currency" style="color:#166534">R$ ${fmt(cur.fat)}</div>
+      <div class="geral-sub">${(cur.med+cur.vlNaoVinc)>0?Math.round(cur.fat/(cur.med+cur.vlNaoVinc)*100):0}% do medido</div>
+    </div>
+    <div class="geral-card">
+      <div class="geral-label">Folhas não vinculadas</div>
+      <div class="geral-val ${cur.naoVinc>0?'danger':''}">${cur.naoVinc}</div>
+      <div class="geral-sub">R$ ${fmt(cur.vlNaoVinc)}</div>
+    </div>`;
+
+  // ── KPIs de comparação (só aparecem quando há mês de comparação)
+  function delta(a,b){
+    if(!b||b===0)return'';
+    const d=((a-b)/b*100);
+    return`<span style="font-size:10px;color:${d>=0?'#3B6D11':'#A32D2D'};margin-left:4px">${d>=0?'▲':'▼'}${Math.abs(d).toFixed(0)}% vs ${compLabel(compComp)}</span>`;
+  }
+  const totalMedReal=cur.med+cur.vlNaoVinc;
+  const pctMed=cur.prov>0?Math.round(totalMedReal/cur.prov*100):0;
+  const pctFat=totalMedReal>0?Math.round(cur.fat/totalMedReal*100):0;
+  // Só exibe linha de KPIs detalhados se houver comparação ativa (evita repetição)
+  const kpisEl=document.getElementById('dash-kpis');
+  if(cmp){
+    kpisEl.style.display='grid';
+    kpisEl.innerHTML=`
+      <div class="metric"><div class="metric-label">Provisão</div><div class="metric-value currency" style="font-size:14px">R$ ${fmt(cur.prov)}</div><div class="metric-sub">${delta(cur.prov,cmp.prov)}</div></div>
+      <div class="metric"><div class="metric-label">Medido</div><div class="metric-value currency" style="font-size:14px;color:#185FA5">R$ ${fmt(totalMedReal)}</div><div class="metric-sub">${delta(totalMedReal,cmp.med+cmp.vlNaoVinc)}</div></div>
+      <div class="metric"><div class="metric-label">Faturado (NF)</div><div class="metric-value currency" style="font-size:14px;color:#166534">R$ ${fmt(cur.fat)}</div><div class="metric-sub">${delta(cur.fat,cmp.fat)}</div></div>
+      <div class="metric"><div class="metric-label">Folhas</div><div class="metric-value" style="font-size:14px">${cur.folhas.length}</div><div class="metric-sub">${delta(cur.folhas.length,cmp.folhas.length)}</div></div>
+      <div class="metric"><div class="metric-label">% Medido/Provisão</div><div class="metric-value" style="font-size:14px">${pctMed}%</div><div class="metric-sub">${cmp.prov>0?`vs ${Math.round((cmp.med+cmp.vlNaoVinc)/cmp.prov*100)}% em ${compLabel(compComp)}`:''}</div></div>
+    `;
+  } else {
+    kpisEl.style.display='none';
+    kpisEl.innerHTML='';
+  }
+
+  // dash-comparativo limpo (comparação integrada nos KPIs acima)
+  document.getElementById('dash-comparativo').innerHTML='';
+
+  // ── Donut
+  document.getElementById('donut-mes-label').textContent=compSel?`— ${compLabel(compSel)}`:'';
+  const donutData=[totalFaturado,vlSemNF,vlNaoVinc];
+  const donutLabels=['Faturado (com NF)','Medido s/ NF','Não vinculado'];
+  const donutColors=['#22c55e','#f59e0b','#ef4444'];
+  const donutActions=[
+    ()=>{switchTab('faturado');setTimeout(()=>{document.getElementById('fat-nf').value='com';renderFaturado();},60);},
+    ()=>{switchTab('faturado');setTimeout(()=>{document.getElementById('fat-nf').value='sem';renderFaturado();},60);},
+    ()=>{switchTab('medido');setTimeout(()=>{document.getElementById('fol-vinculo').value='nova';renderFolhas();},60);}
+  ];
+  if(chartDonut)chartDonut.destroy();
+  chartDonut=new Chart(document.getElementById('chart-donut'),{
+    type:'doughnut',
+    data:{labels:donutLabels,datasets:[{data:donutData,backgroundColor:donutColors,borderWidth:2,borderColor:'#fff',hoverOffset:6}]},
+    options:{cutout:'68%',
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` R$ ${fmt(ctx.raw)} (${totalFolhas>0?Math.round(ctx.raw/totalFolhas*100):0}%)`}}},
+      animation:{duration:500},
+      onClick(_,els){if(els.length)donutActions[els[0].index]?.();},
+      onHover:(e,els)=>{e.native.target.style.cursor=els.length?'pointer':'default';}
+    }
+  });
+  document.getElementById('donut-legend').innerHTML=donutLabels.map((l,i)=>`
+    <div class="stat-row" style="cursor:pointer" onclick="donutActions[${i}]?.()" title="Clique para filtrar">
+      <div class="stat-dot" style="background:${donutColors[i]}"></div>
+      <div class="stat-label">${l}</div>
+      <div class="stat-val" style="font-size:11px">R$ ${fmt(donutData[i])}</div>
+      <div class="stat-pct">${totalFolhas>0?Math.round(donutData[i]/totalFolhas*100):0}%</div>
+    </div>`).join('');
+
+  // ── Evolução mensal (clique seleciona mês)
+  const byComp={};
+  data.forEach(i=>{
+    if(!i.comp)return;
+    if(!byComp[i.comp])byComp[i.comp]={prov:0,med:0,fat:0};
+    byComp[i.comp].prov+=Number(i.provisao||0);
+    const lks=i.folhas_vinculadas||[];
+    const v=lks.reduce((s,l)=>s+Number(l.valor||0),0)||Number(i.medicao||0);
+    if(lks.length||i.medicao)byComp[i.comp].med+=v;
+    byComp[i.comp].fat+=lks.filter(l=>l.nf).reduce((s,l)=>s+Number(l.valor||0),0);
+  });
+  const comps=Object.keys(byComp).sort();
+  const provColors=comps.map(c=>c===compSel?'#3b82f6':c===compComp?'#67e8f9':'#dbeafe');
+  const medColors=comps.map(c=>c===compSel?'#2563eb':c===compComp?'#06b6d4':'#93c5fd');
+  const fatColors=comps.map(c=>c===compSel?'#16a34a':c===compComp?'#6ee7b7':'#86efac');
+  if(chartMensal)chartMensal.destroy();
+  chartMensal=new Chart(document.getElementById('chart-mensal'),{
+    type:'bar',
+    data:{labels:comps.map(compLabel),datasets:[
+      {label:'Provisão',data:comps.map(c=>byComp[c].prov),backgroundColor:provColors,borderColor:provColors,borderWidth:1,borderRadius:3},
+      {label:'Medido',data:comps.map(c=>byComp[c].med),backgroundColor:medColors,borderColor:medColors,borderWidth:1,borderRadius:3},
+      {label:'Faturado',data:comps.map(c=>byComp[c].fat),backgroundColor:fatColors,borderColor:fatColors,borderWidth:1,borderRadius:3}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'bottom',labels:{font:{size:10},boxWidth:10,padding:8}},
+        tooltip:{callbacks:{label:ctx=>` ${ctx.dataset.label}: R$ ${fmt(ctx.raw)}`}}},
+      scales:{y:{ticks:{callback:v=>'R$ '+Number(v/1000).toFixed(0)+'k',font:{size:10}},grid:{color:'#f0f0f0'}},
+              x:{ticks:{font:{size:10}}}},
+      onClick(_,els){if(!els.length)return;selecionarMes(comps[els[0].index]);},
+      onHover:(e,els)=>{e.native.target.style.cursor=els.length?'pointer':'default';}
+    }
+  });
+
+  // ── Tabela de contratos
+  const byCtr={};
+  dataFil.forEach(i=>{
+    const k=i.contrato_num||'';
+    if(!k)return;
+    if(!byCtr[k])byCtr[k]={num:k,nome:i.contrato_nome||'',prov:0,med:0,fat:0};
+    byCtr[k].prov+=Number(i.provisao||0);
+    const lks=i.folhas_vinculadas||[];
+    const v=lks.reduce((s,l)=>s+Number(l.valor||0),0)||Number(i.medicao||0);
+    if(lks.length||i.medicao)byCtr[k].med+=v;
+    byCtr[k].fat+=lks.filter(l=>l.nf).reduce((s,l)=>s+Number(l.valor||0),0);
+  });
+  // Inclui contratos com saldo mas sem provisão no período
+  Object.values(saldos).forEach(s=>{
+    if(!s.num)return;
+    if(!byCtr[s.num])byCtr[s.num]={num:s.num,nome:s.nome||'',prov:0,med:0,fat:0};
+  });
+  const sortedCtrs=Object.values(byCtr).sort((a,b)=>b.prov-a.prov);
+  const ctrLabel=document.getElementById('dash-ctr-label');
+  if(ctrLabel)ctrLabel.textContent=compSel?`— ${compLabel(compSel)}`:'(todos os meses)';
+  const ctrTbody=document.getElementById('dash-ctr-tbody');
+  const ctrEmpty=document.getElementById('dash-ctr-empty');
+  if(!sortedCtrs.length){ctrTbody.innerHTML='';ctrEmpty.style.display='block';}
+  else{
+    ctrEmpty.style.display='none';
+    ctrTbody.innerHTML=sortedCtrs.map(c=>{
+      const s=saldos[c.num];
+      const saldo=s?Number(s.saldo||0):null;
+      const restante=saldo!=null?saldo-c.med:null;
+      const pctMed=c.prov>0?Math.min(100,Math.round(c.med/c.prov*100)):0;
+      const pctFat=c.prov>0?Math.min(100,Math.round(c.fat/c.prov*100)):0;
+      const restCor=restante!=null&&restante<0?'#A32D2D':restante!=null&&restante<c.prov*0.2?'#854F0B':'#166534';
+      return`<tr onclick="switchTab('provisao');setTimeout(()=>{document.getElementById('search').value='${c.num}';applyFilters();},60)" style="cursor:pointer">
+        <td>
+          <div style="font-weight:700;font-size:12px">${c.num}</div>
+          <div style="font-size:10px;color:#888;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.nome}</div>
+        </td>
+        <td class="currency" style="font-size:12px">${saldo!=null?'R$ '+fmt(saldo):'—'}</td>
+        <td class="currency" style="font-size:12px">${c.prov>0?'R$ '+fmt(c.prov):'—'}</td>
+        <td class="currency" style="font-size:12px;color:#185FA5;font-weight:600">${c.med>0?'R$ '+fmt(c.med):'—'}</td>
+        <td class="currency" style="font-size:12px;color:#166534;font-weight:600">${c.fat>0?'R$ '+fmt(c.fat):'—'}</td>
+        <td class="currency" style="font-size:12px;font-weight:700;color:${restCor}">${restante!=null?'R$ '+fmt(restante):'—'}</td>
+        <td>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div class="ctr-progress" style="flex:1">
+              <div class="ctr-progress-fill" style="width:${pctFat}%;background:#22c55e"></div>
+              <div class="ctr-progress-fill" style="width:${Math.max(0,pctMed-pctFat)}%;background:#93c5fd;margin-top:-6px"></div>
+            </div>
+            <span style="font-size:11px;font-weight:700;color:#1a1a2e;min-width:32px">${pctMed}%</span>
+          </div>
+        </td>
+      </tr>`;
+    }).join('');
+  }
+
+  // ── KPI por gestor
+  const byG={};
+  dataFil.forEach(i=>{
+    const g=i.gestor||'Sem gestor';
+    if(!byG[g])byG[g]={prov:0,med:0,fat:0,obras:0};
+    byG[g].prov+=Number(i.provisao||0);
+    byG[g].obras++;
+    const lks=i.folhas_vinculadas||[];
+    const v=lks.reduce((s,l)=>s+Number(l.valor||0),0)||Number(i.medicao||0);
+    if(lks.length||i.medicao)byG[g].med+=v;
+    byG[g].fat+=lks.filter(l=>l.nf).reduce((s,l)=>s+Number(l.valor||0),0);
+  });
+  const gColors=['#3b82f6','#8b5cf6','#f59e0b','#10b981','#ef4444','#06b6d4'];
+  const gestEntries=Object.entries(byG).sort((a,b)=>b[1].prov-a[1].prov);
+  document.getElementById('dash-gestores').innerHTML=`<div class="gestor-grid">${gestEntries.map(([g,v],gi)=>{
+    const pctMed=v.prov>0?Math.min(100,Math.round(v.med/v.prov*100)):0;
+    const pctFat=v.prov>0?Math.min(100,Math.round(v.fat/v.prov*100)):0;
+    const cor=gColors[gi%gColors.length];
+    return`<div class="gestor-card" onclick="filtrarGestor(\`${g}\`)" style="border-left-color:${cor}">
+      <div class="gestor-name" style="color:${cor}">${g}<span class="gestor-obras">${v.obras} obra${v.obras!==1?'s':''}</span></div>
+      <div class="gestor-vals">
+        <div class="gestor-val-cell"><div class="gestor-val-label">Provisão</div><div class="gestor-val-num">R$ ${fmt(v.prov)}</div></div>
+        <div class="gestor-val-cell"><div class="gestor-val-label">Medido</div><div class="gestor-val-num" style="color:#185FA5">R$ ${fmt(v.med)}</div></div>
+        <div class="gestor-val-cell"><div class="gestor-val-label">Faturado</div><div class="gestor-val-num" style="color:#166534">R$ ${fmt(v.fat)}</div></div>
+      </div>
+      <div class="gestor-bar-wrap"><div class="gestor-bar-bg"><div class="gestor-bar-fg" style="width:${pctMed}%;background:${cor};opacity:.4"></div></div></div>
+      <div class="gestor-bar-wrap"><div class="gestor-bar-bg"><div class="gestor-bar-fg" style="width:${pctFat}%;background:${cor}"></div></div></div>
+      <div class="gestor-pcts"><span>${pctMed}% medido</span><span style="color:#888;font-weight:600">${pctFat}% faturado</span></div>
+    </div>`;
+  }).join('')}</div>`;
+
+  // ── Folhas pendentes
+  const pending=naoVincFolhas.sort((a,b)=>b.valor_total-a.valor_total);
+  document.getElementById('dash-pendentes-count').textContent=`(${pending.length} folhas · R$ ${fmt(vlNaoVinc)})`;
+  const tbody=document.getElementById('dash-pendentes-tbody');
+  const empty=document.getElementById('dash-pendentes-empty');
+  if(!pending.length){tbody.innerHTML='';empty.style.display='block';return;}
+  empty.style.display='none';
+  tbody.innerHTML=pending.slice(0,10).map(f=>`<tr>
+    <td style="font-weight:700;font-size:12px">${f.n_folha}</td>
+    <td style="font-size:11px">${f.n_contrato||'—'}</td>
+    <td style="font-size:11px">${f.municipio||'—'}</td>
+    <td style="font-size:11px;white-space:nowrap">${compLabel(f.periodo)}</td>
+    <td class="currency" style="font-weight:700;color:#dc2626">R$ ${fmt(f.valor_total)}</td>
+    <td style="font-size:11px;white-space:nowrap">${f.data_recebimento||'—'}</td>
+  </tr>`).join('');
+}
+
+function filtrarGestor(gestor){
+  switchTab('provisao');
+  setTimeout(()=>{document.getElementById('sel-gestor').value=gestor;applyFilters();},60);
+}
+
+
+// ── Carregamento de dados ─────────────────────────────────────────────────
+
+async function load(){
+  try{
+    const [rm,rc]=await Promise.all([fetch('/api/medicoes'),fetch('/api/contratos')]);
+    if(!rm.ok)throw new Error();
+    data=await rm.json();
+    const ctrs=rc.ok?await rc.json():[];
+    saldos={};
+    ctrs.forEach(c=>saldos[c.num]=c);
+    populateGestores();
+    // Definir competência padrão: mês atual se existir, senão o mais recente com dados
+    const hoje=new Date();
+    const mesAtual=`${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}`;
+    const temMesAtual=data.some(i=>i.comp===mesAtual);
+    const compsComDados=[...new Set(data.map(i=>i.comp).filter(Boolean))].sort();
+    const compPadrao=temMesAtual?mesAtual:(compsComDados[compsComDados.length-1]||mesAtual);
+    document.getElementById('sel-comp').value=compPadrao;
+    applyFilters();
+    // Carregar folhas em paralelo para ter dados no dashboard
+    loadFolhas();
+  }catch(e){toast('Erro ao carregar dados.');}
+}
+
+async function loadFolhas(){
+  try{
+    const resp=await fetch('/api/folhas');
+    if(!resp.ok){console.error('loadFolhas HTTP',resp.status);toast('Erro ao carregar folhas (HTTP '+resp.status+').');return;}
+    const txt=await resp.text();
+    try{folhas=JSON.parse(txt);}catch(je){console.error('loadFolhas JSON parse error:',je,'txt[:200]:',txt.slice(0,200));toast('Erro de formato ao carregar folhas.');return;}
+    console.log('loadFolhas OK:',folhas.length,'folhas');
+  }catch(e){console.error('loadFolhas fetch error:',e);toast('Erro de rede ao carregar folhas.');return;}
+  renderMetrics();
+  if(activeTab==='dashboard')renderDashboard();
+  if(activeTab==='medido'){try{renderFolhas();}catch(e){console.error('renderFolhas error:',e);}}
+  if(activeTab==='faturado'){try{renderFaturado();}catch(e){console.error('renderFaturado error:',e);}}
+  try{populateFolhaSelect();}catch(e){console.error('populateFolhaSelect error:',e);}
+}
+
+function populateGestores(){
+  const gs=[...new Set(data.map(d=>d.gestor).filter(Boolean))].sort();
+  const sel=document.getElementById('sel-gestor');
+  const cur=sel.value;
+  sel.innerHTML='<option value="">Todos gestores</option>'+gs.map(g=>`<option value="${g}">${g}</option>`).join('');
+  sel.value=cur;
+}
+
+function populateFolhaSelect(){
+  const sel=document.getElementById('f-folha');
+  const cur=sel.value;
+  const vinculadas=new Set(data.map(d=>d.pedido).filter(Boolean));
+  sel.innerHTML='<option value="">-- Nenhuma / inserir manualmente --</option>'+
+    folhas.map(f=>{
+      const label=`${f.n_folha} — Contrato ${f.n_contrato} — ${compLabel(f.periodo)} — R$ ${fmt(f.valor_total)}${vinculadas.has(f.n_folha)?' ✓':''}`;
+      return`<option value="${f.n_folha}">${label}</option>`;
+    }).join('');
+  if(cur)sel.value=cur;
+}
+
+function onFolhaSelect(){
+  const n=document.getElementById('f-folha').value;
+  if(!n)return;
+  const f=folhas.find(x=>x.n_folha===n);
+  if(!f)return;
+  document.getElementById('f-cnum').value=f.n_contrato||'';
+  document.getElementById('f-pedido').value=f.n_folha||'';
+  if(f.valor_total){
+    document.getElementById('f-medicao').value=f.valor_total;
+    autoStatus();
+  }
+  if(f.periodo)document.getElementById('f-comp').value=f.periodo;
+  // fill contrato nome from saldos
+  const s=saldos[f.n_contrato];
+  if(s)document.getElementById('f-cnome').value=s.nome||'';
+}
+
+// ── Filtros e tabela principal ────────────────────────────────────────────
+
+function applyFilters(){
+  const comp=document.getElementById('sel-comp').value;
+  const emp=document.getElementById('sel-empresa').value;
+  const ges=document.getElementById('sel-gestor').value;
+  const q=(document.getElementById('search').value||'').toLowerCase();
+
+  // Popular dropdown de competência
+  const selComp=document.getElementById('sel-comp');
+  const curComp=selComp.value;
+  const allComps=[...new Set(data.map(i=>i.comp).filter(Boolean))].sort().reverse();
+  selComp.innerHTML='<option value="">Todas competências</option>'+
+    allComps.map(c=>`<option value="${c}">${compLabel(c)}</option>`).join('');
+  selComp.value=curComp;
+
+  filtered=data.filter(i=>{
+    return(!comp||i.comp===comp)&&
+           (!emp||i.empresa===emp)&&
+           (!ges||i.gestor===ges)&&
+           (filterStatus==='todos'||i.status===filterStatus)&&
+           (!q||(i.obra||'').toLowerCase().includes(q)||(i.contrato_num||'').toLowerCase().includes(q)||(i.cod||'').toLowerCase().includes(q));
+  });
+  renderMetrics();renderFilters();renderTable();
+  if(activeTab==='contratos')renderResumo();
+  if(activeTab==='dashboard')renderDashboard();
+}
+
+function setFilter(s){filterStatus=s;applyFilters();}
+function setEmpresa(val){
+  document.getElementById('sel-empresa').value=val;
+  document.querySelectorAll('.emp-btn').forEach(b=>b.className='emp-btn');
+  if(val===''){document.querySelectorAll('.emp-btn')[0].classList.add('active-all');}
+  else if(val==='ENERGY CONSTRUÇÕES'){document.querySelectorAll('.emp-btn')[1].classList.add('active-cons');}
+  else{document.querySelectorAll('.emp-btn')[2].classList.add('active-serv');}
+  applyFilters();
+}
+
+function nfStatus(item){
+  if(!['aprovado','nf_emitida'].includes(item.status))return null;
+  if(item.status==='aprovado'&&!item.nf)return{label:'Sem NF',cls:'b-atras'};
+  if(item.nf&&item.venc_nf){
+    const hoje=new Date();hoje.setHours(0,0,0,0);
+    const v=new Date(item.venc_nf+'T00:00:00');
+    if(v<hoje)return{label:'Vencida',cls:'b-atras'};
+    const d=Math.ceil((v-hoje)/86400000);
+    if(d<=5)return{label:`${d}d`,cls:'b-val'};
+    return{label:'OK',cls:'b-ok'};
+  }
+  return null;
+}
+
+function renderMetrics(){
+  // Cards do topo removidos — dados disponíveis no dashboard com filtro por mês
+}
+
+function renderFilters(){
+  const statuses=['todos',...Object.keys(STATUS_MAP)];
+  document.getElementById('filter-bar').innerHTML=statuses.map(s=>{
+    const label=s==='todos'?'Todas':STATUS_MAP[s]?.label||s;
+    const count=s==='todos'?data.length:data.filter(i=>i.status===s).length;
+    return`<button class="filter-btn ${filterStatus===s?'active':''}" onclick="setFilter('${s}')">${label} (${count})</button>`;
+  }).join('');
+}
+
+// Cor de status para faixa lateral
+const STATUS_COLOR={
+  previsto:'#d1d5db', medicao:'#93c5fd', validado:'#fcd34d',
+  aprovado:'#86efac', nf_emitida:'#4ade80'
+};
+
+function renderTable(){
+  const tbody=document.getElementById('tbody');
+  const empty=document.getElementById('empty-state');
+  if(!filtered.length){tbody.innerHTML='';empty.style.display='block';return;}
+  empty.style.display='none';
+  tbody.innerHTML=filtered.map(item=>{
+    const st=STATUS_MAP[item.status]||{label:item.status||'—',cls:'b-prev'};
+    const stColor=STATUS_COLOR[item.status]||'#e5e7eb';
+    const ecls=item.empresa==='ENERGY CONSTRUÇÕES'?'ec':'es';
+    const el=item.empresa==='ENERGY CONSTRUÇÕES'?'EC':'ES';
+
+    // Medido = total das folhas vinculadas (com ou sem NF)
+    const links=item.folhas_vinculadas||[];
+    const vlMedido=links.reduce((s,lk)=>s+Number(lk.valor||0),0)||Number(item.medicao||0);
+    // Faturado = folhas que têm NF emitida
+    const vlFaturado=links.filter(lk=>lk.nf).reduce((s,lk)=>s+Number(lk.valor||0),0);
+
+    const medidoHtml=vlMedido
+      ?`<span style="font-weight:600">R$ ${fmt(vlMedido)}</span>`
+      :'<span style="color:#ccc">—</span>';
+
+    const faturadoHtml=vlFaturado
+      ?`<span style="font-weight:600;color:#166534">R$ ${fmt(vlFaturado)}</span>`
+      :'<span style="color:#ccc">—</span>';
+
+    return`<tr>
+      <td><input type="checkbox" ${selectedIds.has(item.id)?'checked':''} onchange="toggleSelect('${item.id}',this.checked)"></td>
+      <td style="padding:0;width:4px"><div style="width:4px;height:100%;min-height:36px;background:${stColor};border-radius:2px" title="${st.label}"></div></td>
+      <td>
+        <div style="font-size:10px;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:.3px">${item.cod||''}</div>
+        <div class="obra-label" title="${item.obra||''}" style="margin-top:1px">${item.obra||''}</div>
+      </td>
+      <td><span class="${ecls}">${el}</span></td>
+      <td style="font-size:11px;white-space:nowrap">${item.contrato_num||''}<br><span style="color:#999;font-size:10px">${item.contrato_nome||''}</span></td>
+      <td style="font-size:11px;white-space:nowrap">${item.gestor||'—'}</td>
+      <td style="font-size:11px;white-space:nowrap">
+        ${compLabel(item.comp)}
+        ${(()=>{const sp=item.status_prov||'aberta';const links=item.folhas_vinculadas||[];const vlMed=links.reduce((a,l)=>a+Number(l.valor||0),0);const prov=Number(item.provisao||0);const pct=prov>0?Math.round(vlMed/prov*100):0;const spMap={cumprida:{cls:'b-cumprida',lbl:'✓ Cumprida'},parcial:{cls:'b-parcial',lbl:`◑ Parcial ${pct}%`},aberta:{cls:'b-aberta',lbl:'Aberta'},realocada:{cls:'b-realocada',lbl:'↗ Realocada'},cancelada:{cls:'b-cancelada',lbl:'⛔ Cancelada'}};const s=spMap[sp]||spMap.aberta;return`<br><span class="badge ${s.cls}" style="margin-top:3px;font-size:9px">${s.lbl}</span>`;})()}
+      </td>
+      <td class="currency" style="white-space:nowrap;font-size:12px">R$ ${fmt(item.provisao)}</td>
+      <td class="currency" style="white-space:nowrap;font-size:12px;cursor:${links.length?'pointer':'default'}" onclick="${links.length?`showPop(event,'medido','${item.id}')`:''}" title="${links.length?'Ver detalhes das folhas':''}">${medidoHtml}</td>
+      <td class="currency" style="white-space:nowrap;font-size:12px;cursor:${links.filter(l=>l.nf).length?'pointer':'default'}" onclick="${links.filter(l=>l.nf).length?`showPop(event,'faturado','${item.id}')`:''}" title="${links.filter(l=>l.nf).length?'Ver notas fiscais':''}">${faturadoHtml}</td>
+      <td><div style="display:flex;gap:4px">
+        <button class="btn sm" onclick="editItem('${item.id}')" title="Editar">✏️</button>
+        <button class="btn sm danger" onclick="del('${item.id}')" title="Excluir">🗑</button>
+      </div></td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Popover detalhes folhas/NFs ───────────────────────────────────────────
+
+function showPop(event, modo, itemId){
+  event.stopPropagation();
+  const item=data.find(d=>d.id===itemId);
+  if(!item)return;
+  const links=item.folhas_vinculadas||[];
+  if(!links.length)return;
+
+  const totalMedido=links.reduce((a,l)=>a+Number(l.valor||0),0);
+  const totalFaturado=links.filter(l=>l.nf).reduce((a,l)=>a+Number(l.valor||0),0);
+  const semNF=links.filter(l=>!l.nf).length;
+
+  document.getElementById('dp-title').textContent='Folhas vinculadas';
+  document.getElementById('dp-total').textContent='R$ '+fmt(totalMedido);
+  document.getElementById('dp-body').innerHTML=links.map(l=>`
+    <div class="dp-row" style="${!l.nf?'background:#fff8f8':''}">
+      <div>
+        <div class="dp-folha">Folha ${l.n_folha}</div>
+        ${l.periodo?`<div style="font-size:10px;color:#999">${compLabel(l.periodo)}</div>`:''}
+      </div>
+      <span class="dp-nf ${l.nf?'':'sem'}">${l.nf?'NF-'+l.nf:'Sem NF'}</span>
+      <div class="dp-val" style="${!l.nf?'color:#dc2626':''}">R$ ${fmt(l.valor)}</div>
+    </div>`).join('');
+  document.getElementById('dp-footer').innerHTML=
+    `<span>${links.length} folha${links.length!==1?'s':''}${semNF?` · <span style="color:#dc2626;font-weight:600">${semNF} sem NF</span>`:' · todas faturadas'}</span>`+
+    `<span><span style="color:#166534;font-weight:700">NF: R$ ${fmt(totalFaturado)}</span></span>`;
+
+  const pop=document.getElementById('detail-pop');
+  pop.classList.add('open');
+  const vw=window.innerWidth, vh=window.innerHeight;
+  const pw=440, ph=Math.min(links.length*44+110,430);
+  let x=event.clientX+12, y=event.clientY+12;
+  if(x+pw>vw-10)x=event.clientX-pw-8;
+  if(y+ph>vh-10)y=event.clientY-ph-8;
+  pop.style.left=Math.max(8,x)+'px';
+  pop.style.top=Math.max(8,y)+'px';
+}
+
+function closePop(){
+  document.getElementById('detail-pop').classList.remove('open');
+}
+
+document.addEventListener('click',e=>{
+  const pop=document.getElementById('detail-pop');
+  if(pop.classList.contains('open')&&!pop.contains(e.target))closePop();
+});
+
+// ── Medições recebidas (folhas) ───────────────────────────────────────────
+
+function renderFolhas(){
+  const ctrFil=document.getElementById('fol-contrato').value;
+  const perFil=document.getElementById('fol-periodo').value;
+  const vinFil=document.getElementById('fol-vinculo').value;
+  const q=(document.getElementById('fol-search').value||'').toLowerCase().trim();
+
+  // Populate dropdowns
+  const allCtrs=[...new Set(folhas.map(f=>f.n_contrato).filter(Boolean))].sort();
+  const allPers=[...new Set(folhas.map(f=>f.periodo).filter(Boolean))].sort();
+  const selC=document.getElementById('fol-contrato');
+  const selP=document.getElementById('fol-periodo');
+  const curC=selC.value, curP=selP.value;
+  selC.innerHTML='<option value="">Todos contratos</option>'+allCtrs.map(c=>`<option value="${c}">${c}</option>`).join('');
+  selP.innerHTML='<option value="">Todos períodos</option>'+allPers.map(p=>`<option value="${p}">${compLabel(p)}</option>`).join('');
+  selC.value=curC; selP.value=curP;
+
+  // Mapa n_folha → [{medicao, linkId, valor}, ...] (suporte a rateio)
+  const folhaLinks={};
+  data.forEach(d=>{
+    (d.folhas_vinculadas||[]).forEach(lk=>{
+      if(!folhaLinks[lk.n_folha])folhaLinks[lk.n_folha]=[];
+      folhaLinks[lk.n_folha].push({medicao:d,linkId:lk.id,valor:lk.valor||0});
+    });
+  });
+
+  // Set de folhas vinculadas (qualquer rateio)
+  const vinculadas=new Set([
+    ...data.map(d=>d.pedido).filter(Boolean),
+    ...Object.keys(folhaLinks)
+  ]);
+
+  let rows=folhas.filter(f=>{
+    const vinc=vinculadas.has(f.n_folha);
+    if(ctrFil&&f.n_contrato!==ctrFil)return false;
+    if(perFil&&f.periodo!==perFil)return false;
+    if(vinFil==='nova'&&vinc)return false;
+    if(vinFil==='vinculada'&&!vinc)return false;
+    if(q&&!(f.n_folha+' '+(f.municipio||'')+' '+(f.n_contrato||'')).toLowerCase().includes(q))return false;
+    return true;
+  }).sort((a,b)=>Number(a.n_folha)-Number(b.n_folha));
+
+  const totalRecv=rows.reduce((a,f)=>a+f.valor_total,0);
+  const novas=rows.filter(f=>!vinculadas.has(f.n_folha)).length;
+  const vinc=rows.filter(f=>vinculadas.has(f.n_folha)).length;
+  document.getElementById('folhas-metrics').innerHTML=`
+    <div class="metric"><div class="metric-label">Total recebido</div><div class="metric-value currency warn" style="font-size:14px">R$ ${fmt(totalRecv)}</div></div>
+    <div class="metric"><div class="metric-label">Folhas</div><div class="metric-value" style="font-size:14px">${rows.length}</div></div>
+    <div class="metric"><div class="metric-label">Não vinculadas</div><div class="metric-value danger" style="font-size:14px">${novas}</div><div class="metric-sub">pendentes de vínculo</div></div>
+    <div class="metric"><div class="metric-label">Vinculadas</div><div class="metric-value success" style="font-size:14px">${vinc}</div></div>
+  `;
+
+  const tbody=document.getElementById('tbody-folhas');
+  const empty=document.getElementById('empty-folhas');
+  if(!rows.length){tbody.innerHTML='';empty.style.display='block';return;}
+  empty.style.display='none';
+
+  tbody.innerHTML=rows.map(f=>{
+    const links=folhaLinks[f.n_folha]||[];
+    const isVinc=links.length>0||vinculadas.has(f.n_folha);
+    const arquivo=f.arquivo?f.arquivo.split('/').pop():'—';
+    const arquivoShort=arquivo.length>28?arquivo.substring(0,26)+'…':arquivo;
+    const key=f.n_folha.replace(/\W/g,'_');
+
+    // Calcular rateio
+    const totalAlocado=links.reduce((a,lk)=>a+(lk.valor||0),0);
+    const restante=Math.max(0,parseFloat(((f.valor_total||0)-totalAlocado).toFixed(2)));
+    const pct=f.valor_total>0?Math.min(100,Math.round(totalAlocado/f.valor_total*100)):0;
+    const totalOk=pct>=100;
+
+    // Obras disponíveis para dropdown (mesmo contrato)
+    let obras=data.filter(d=>d.contrato_num===f.n_contrato&&d.comp===f.periodo);
+    if(!obras.length) obras=data.filter(d=>d.contrato_num===f.n_contrato);
+
+    const obraOpts=obras.map(d=>`<option value="${d.id}">${escQ(d.obra||'')}</option>`).join('');
+    const selHtml=obras.length
+      ?`<select id="rateio-sel-${key}" style="width:100%;font-size:11px;padding:4px 6px;margin-bottom:3px"><option value="">-- Selecionar obra --</option>${obraOpts}</select>`
+      :`<span style="font-size:11px;color:#ccc">Sem obras para ${f.n_contrato}</span>`;
+
+    // Painel de adicionar rateio (oculto por padrão, exceto se sem links)
+    const addPanel=`<div id="rateio-add-${key}" style="display:${isVinc?'none':'block'};margin-top:${isVinc?'4px':'0'}">
+      ${selHtml}
+      <div style="display:flex;gap:4px;align-items:center">
+        <span style="font-size:10px;color:#888;white-space:nowrap">R$</span>
+        <input type="number" id="rateio-val-${key}" value="${restante}" min="0.01" step="0.01" style="width:100%;font-size:11px;padding:4px 6px" placeholder="Valor a ratear">
+      </div>
+      <button class="btn sm primary" style="margin-top:4px;width:100%;font-size:11px" onclick="vincularRateio('${escQ(f.n_folha)}','${key}','${f.periodo||''}')">✓ Vincular</button>
+    </div>`;
+
+    // Célula principal
+    let acaoCell;
+    if(isVinc){
+      const linksHtml=links.map(lk=>`
+        <div style="display:flex;align-items:center;gap:4px;margin-bottom:4px;padding:4px 6px;background:#f8fdf4;border-radius:5px;border:1px solid #d4edbc">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:10px;font-weight:700;color:#3B6D11;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escQ(lk.medicao.obra||'')}">${lk.medicao.obra||''}</div>
+            <div style="font-size:9px;color:#888">R$ ${fmt(lk.valor)}</div>
+          </div>
+          <button class="btn sm danger" style="font-size:9px;padding:2px 5px;flex-shrink:0" onclick="desvincularFolha('${lk.linkId}')">✕</button>
+        </div>`).join('');
+      const barColor=totalOk?'#3B6D11':'#185FA5';
+      const barHtml=`<div style="height:5px;background:#f0f0f0;border-radius:3px;margin:5px 0 2px">
+        <div style="height:100%;width:${pct}%;background:${barColor};border-radius:3px;transition:width .3s"></div></div>
+        <div style="font-size:9px;color:#888;margin-bottom:4px">${pct}% alocado · Restante: R$ ${fmt(restante)}</div>`;
+      const addBtn=!totalOk&&obras.length
+        ?`<button class="btn sm" style="font-size:10px;width:100%;margin-top:2px" onclick="toggleRateioAdd('${key}')">+ Adicionar rateio</button>`:'';
+      acaoCell=linksHtml+barHtml+addPanel+addBtn;
+    } else {
+      acaoCell=addPanel;
+    }
+
+    // Badge de status
+    const badge=!isVinc
+      ?'<span class="badge b-atras">Não vinculada</span>'
+      :totalOk
+        ?'<span class="badge b-apr">Vinculada</span>'
+        :`<span class="badge b-med">Rateio parcial</span>`;
+
+    const rowClass=!isVinc?'folha-nova':totalOk?'folha-vinculada':'folha-parcial';
+    return`<tr class="${rowClass}">
+      <td style="font-weight:700;font-size:12px">${f.n_folha}</td>
+      <td style="font-size:11px;white-space:nowrap">${f.n_contrato}<br><span style="color:#999">${saldos[f.n_contrato]?.nome||''}</span></td>
+      <td style="font-size:11px;white-space:nowrap">${compLabel(f.periodo)}</td>
+      <td style="font-size:11px">${f.municipio||'—'}</td>
+      <td class="currency" style="font-weight:700;white-space:nowrap">R$ ${fmt(f.valor_total)}</td>
+      <td style="font-size:11px;white-space:nowrap">${f.data_recebimento||'—'}</td>
+      <td>${badge}</td>
+      <td style="min-width:260px">${acaoCell}</td>
+    </tr>`;
+  }).join('');
+}
+
+async function salvarCampoFolha(input){
+  const obraId=input.dataset.obra;
+  const field=input.dataset.field;
+  const value=input.value.trim();
+  const item=data.find(d=>String(d.id)===String(obraId));
+  if(!item)return;
+  const body={...item};
+  body[field]=field==='medicao'?(parseFloat(value)||null):value||null;
+  // Atualiza status automaticamente
+  if(field==='nf'){
+    if(value) body.status='nf_emitida';
+    else if(body.status==='nf_emitida') body.status='aprovado';
+  }
+  const r=await fetch('/api/medicoes/'+obraId,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  if(r.ok){
+    input.style.borderColor='#3B6D11';
+    setTimeout(()=>input.style.borderColor='',1500);
+    await load();
+    renderFolhas();
+  } else {
+    input.style.borderColor='#A32D2D';
+    toast('Erro ao salvar.');
+  }
+}
+
+function toggleRateioAdd(key){
+  const el=document.getElementById('rateio-add-'+key);
+  if(el){el.style.display=el.style.display==='none'?'block':'none';}
+}
+
+async function vincularRateio(nFolha, key, periodo){
+  const sel=document.getElementById('rateio-sel-'+key);
+  const inp=document.getElementById('rateio-val-'+key);
+  const obraId=sel?sel.value:'';
+  const valor=parseFloat(inp?inp.value:0)||0;
+  if(!obraId){toast('Selecione uma obra.');return;}
+  if(valor<=0){toast('Informe um valor maior que zero.');return;}
+  await vincularInline(nFolha,obraId,valor,periodo);
+}
+
+async function vincularInline(nFolha, obraId, valor, periodo){
+  if(!obraId)return;
+  const r=await fetch('/api/medicao-folhas',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({medicao_id:obraId,n_folha:nFolha,valor:valor,periodo:periodo})
+  });
+  if(r.ok){toast('✓ Folha '+nFolha+' vinculada.');await load();renderFolhas();}
+  else{const e=await r.json();toast('Erro: '+(e.erro||'desconhecido'));}
+}
+
+async function desvincularFolha(linkId){
+  if(!confirm('Remover vínculo desta folha?'))return;
+  const r=await fetch('/api/medicao-folhas/'+linkId,{method:'DELETE'});
+  if(r.ok){toast('Vínculo removido.');await load();renderFolhas();}
+  else toast('Erro ao desvincular.');
+}
+
+// ── Resumo por contrato ───────────────────────────────────────────────────
+
+function renderResumo(){
+  const empFil=document.getElementById('res-empresa').value;
+  const ctrFil=document.getElementById('res-contrato').value;
+  const contratos={};
+  // Inclui todos os contratos cadastrados, mesmo sem medições
+  Object.values(saldos).forEach(s=>{
+    if(!s.num)return;
+    contratos[s.num]={empresa:'',num:s.num,nome:s.nome||'',saldo:Number(s.saldo||0),prov:0,recv:0,med:0,apr:0,nf:0,count:0};
+  });
+  data.forEach(i=>{
+    const k=i.contrato_num||'';
+    if(!contratos[k])contratos[k]={empresa:i.empresa,num:k,nome:i.contrato_nome||'',saldo:0,prov:0,recv:0,med:0,apr:0,nf:0,count:0};
+    if(!contratos[k].empresa)contratos[k].empresa=i.empresa;
+    const s=saldos[k];
+    if(s)contratos[k].saldo=Number(s.saldo||0);
+    contratos[k].prov+=Number(i.provisao||0);
+    contratos[k].med+=Number(i.medicao||0);
+    if(['aprovado','nf_emitida'].includes(i.status))contratos[k].apr+=Number(i.medicao||i.provisao||0);
+    if(i.status==='nf_emitida')contratos[k].nf+=Number(i.medicao||i.provisao||0);
+    contratos[k].count++;
+  });
+  // add recv from folhas per contract
+  folhas.forEach(f=>{
+    const k=f.n_contrato;
+    if(contratos[k])contratos[k].recv+=Number(f.valor_total||0);
+  });
+
+  const selC=document.getElementById('res-contrato');
+  const curC=selC.value;
+  selC.innerHTML='<option value="">Todos contratos</option>'+
+    [...new Set(Object.keys(contratos))].sort().map(n=>`<option value="${n}">${n}${saldos[n]?' — '+saldos[n].nome:''}</option>`).join('');
+  selC.value=curC;
+
+  let rows=Object.values(contratos);
+  if(empFil)rows=rows.filter(r=>r.empresa===empFil);
+  if(ctrFil)rows=rows.filter(r=>r.num===ctrFil);
+
+  const tSaldo=rows.reduce((a,r)=>a+Number(r.saldo||0),0);
+  const tProv=rows.reduce((a,r)=>a+r.prov,0);
+  const tRecv=rows.reduce((a,r)=>a+r.recv,0);
+  const tApr=rows.reduce((a,r)=>a+r.apr,0);
+  const tNF=rows.reduce((a,r)=>a+r.nf,0);
+  const tRest=tSaldo-tRecv;
+  const saldoColor=tRest<0?'danger':tSaldo>0&&tRest/tSaldo<0.1?'warn':'success';
+
+  document.getElementById('resumo').innerHTML=`
+  <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:1rem">
+    <div class="metric"><div class="metric-label">Saldo contrato</div><div class="metric-value currency" style="font-size:14px">R$ ${fmt(tSaldo)}</div></div>
+    <div class="metric"><div class="metric-label">Total provisão</div><div class="metric-value currency" style="font-size:14px">R$ ${fmt(tProv)}</div></div>
+    <div class="metric"><div class="metric-label">Saldo restante</div><div class="metric-value ${saldoColor} currency" style="font-size:14px">R$ ${fmt(tRest)}</div><div class="metric-sub">Saldo − Recebido</div></div>
+    <div class="metric"><div class="metric-label">Recebido (folhas)</div><div class="metric-value warn currency" style="font-size:14px">R$ ${fmt(tRecv)}</div></div>
+    <div class="metric"><div class="metric-label">NF Emitida</div><div class="metric-value currency" style="font-size:14px;color:#534AB7">R$ ${fmt(tNF)}</div></div>
+  </div>
+  <div style="overflow-x:auto"><table style="width:100%;table-layout:auto;font-size:11px">
+    <thead><tr>
+      <th style="width:36px">Emp.</th><th style="width:80px">Contrato</th><th>Nome</th><th style="width:44px;text-align:center">Obras</th>
+      <th>Saldo</th><th>Provisão</th><th>Recebido</th>
+      <th>Restante</th><th>Aprovado</th><th style="width:80px">Uso %</th><th style="width:32px"></th>
+    </tr></thead>
+    <tbody>${rows.map(r=>{
+      const s=saldos[r.num];
+      // Restante = Saldo - Recebido
+      const restante=s?s.saldo-r.recv:null;
+      // Alerta de provisão: quando provisão ultrapassa saldo disponível
+      const alertaProv=s&&s.saldo>0&&r.prov>s.saldo?'danger':s&&s.saldo>0&&r.prov/s.saldo>0.9?'warn':'';
+      const alertaRest=restante!=null&&restante<0?'danger':restante!=null&&s&&s.saldo>0&&restante/s.saldo<0.1?'warn':'';
+      const pctUso=s&&s.saldo>0?Math.round((r.recv/s.saldo)*100):0;
+      const ecls=r.empresa==='ENERGY CONSTRUÇÕES'?'ec':'es';
+      const el=r.empresa==='ENERGY CONSTRUÇÕES'?'EC':'ES';
+      const barColor=alertaRest==='danger'?'#A32D2D':alertaRest==='warn'?'#854F0B':'#3B6D11';
+      const tdN='padding:5px 6px;white-space:nowrap';
+      const rowBg=alertaRest==='danger'?'background:#FFF5F5':alertaRest==='warn'?'background:#FFFBF0':'';
+      return`<tr style="${rowBg}">
+        <td style="padding:5px 6px"><span class="${ecls}">${el}</span></td>
+        <td style="${tdN};font-weight:600">${r.num||'—'}</td>
+        <td style="padding:5px 6px;font-weight:600;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s?s.nome:r.nome}</td>
+        <td style="${tdN};text-align:center">${r.count}</td>
+        <td class="currency" style="${tdN}">${s?'R$ '+fmt(s.saldo):'<span style="color:#ccc">—</span>'}</td>
+        <td class="currency" style="${tdN}">R$ ${fmt(r.prov)}${alertaProv==='danger'?' <span title="Provisão excede saldo do contrato" style="color:#A32D2D;font-size:10px">⚠️</span>':alertaProv==='warn'?' <span title="Provisão acima de 90% do saldo" style="color:#854F0B;font-size:10px">⚠️</span>':''}</td>
+        <td class="currency" style="${tdN};color:#854F0B;font-weight:600">${r.recv>0?'R$ '+fmt(r.recv):'—'}</td>
+        <td class="currency" style="${tdN};font-weight:600;color:${alertaRest==='danger'?'#A32D2D':alertaRest==='warn'?'#854F0B':'#1a1a2e'}">${restante!=null?'R$ '+fmt(restante):'—'}${alertaRest==='danger'?' <span class="badge b-atras" style="font-size:9px">EXCEDIDO</span>':alertaRest==='warn'?' <span class="badge b-val" style="font-size:9px">ATENÇÃO</span>':''}</td>
+        <td class="currency" style="${tdN};color:#3B6D11;font-weight:600">${r.apr>0?'R$ '+fmt(r.apr):'—'}</td>
+        <td style="${tdN}">${s?pctUso+'%':'—'}${s?`<div class="progress-bar" style="height:4px;margin-top:3px"><div class="progress-fill" style="width:${Math.min(pctUso,100)}%;background:${barColor}"></div></div>`:''}</td>
+        <td style="padding:5px 4px"><button class="btn sm" style="padding:2px 6px" onclick="editSaldo('${escQ(r.num)}','${escQ(s?s.nome:r.nome)}')">✏️</button></td>
+      </tr>`;
+    }).join('')}</tbody>
+  </table></div>`;
+}
+
+// ── Visão mensal ──────────────────────────────────────────────────────────
+
+function renderMensal(){
+  const empFil=document.getElementById('men-empresa').value;
+  const ctrFil=document.getElementById('men-contrato').value;
+  const modo=document.getElementById('men-modo').value;
+  const selC=document.getElementById('men-contrato');
+  const curC=selC.value;
+  const allNums=[...new Set(data.map(d=>d.contrato_num).filter(Boolean))].sort();
+  selC.innerHTML='<option value="">Todos contratos</option>'+allNums.map(n=>`<option value="${n}">${n}${saldos[n]?' — '+saldos[n].nome:''}</option>`).join('');
+  selC.value=curC;
+
+  let rows=data;
+  if(empFil)rows=rows.filter(r=>r.empresa===empFil);
+  if(ctrFil)rows=rows.filter(r=>r.contrato_num===ctrFil);
+
+  // Group provisão/aprovado by comp
+  const byComp={};
+  rows.forEach(r=>{
+    const c=r.comp||'';if(!c)return;
+    if(!byComp[c])byComp[c]={comp:c,prov:0,med:0,apr:0,nf:0,recv:0,count:0,aprCount:0,nfCount:0};
+    byComp[c].prov+=Number(r.provisao||0);
+    byComp[c].med+=Number(r.medicao||0);
+    byComp[c].count++;
+    if(['aprovado','nf_emitida'].includes(r.status)){byComp[c].apr+=Number(r.medicao||r.provisao||0);byComp[c].aprCount++;}
+    if(r.status==='nf_emitida'){byComp[c].nf+=Number(r.medicao||r.provisao||0);byComp[c].nfCount++;}
+  });
+  // Add received folhas by period
+  let fRows=folhas;
+  if(ctrFil)fRows=fRows.filter(f=>f.n_contrato===ctrFil);
+  fRows.forEach(f=>{
+    const c=f.periodo||'';if(!c)return;
+    if(!byComp[c])byComp[c]={comp:c,prov:0,med:0,apr:0,nf:0,recv:0,count:0,aprCount:0,nfCount:0};
+    byComp[c].recv+=Number(f.valor_total||0);
+  });
+
+  const sorted=Object.values(byComp).sort((a,b)=>a.comp.localeCompare(b.comp));
+  if(!sorted.length){document.getElementById('mensal').innerHTML='<div class="empty">Sem dados.</div>';return;}
+
+  const maxRef=Math.max(...sorted.map(r=>Math.max(r.prov,r.recv,r.apr)),1);
+  const grandProv=sorted.reduce((a,r)=>a+r.prov,0);
+  const grandRecv=sorted.reduce((a,r)=>a+r.recv,0);
+  const grandApr=sorted.reduce((a,r)=>a+r.apr,0);
+  const grandNF=sorted.reduce((a,r)=>a+r.nf,0);
+
+  const summary=`<div class="mensal-summary">
+    <div class="metric"><div class="metric-label">Total provisão</div><div class="metric-value currency" style="font-size:14px">R$ ${fmt(grandProv)}</div></div>
+    <div class="metric"><div class="metric-label">Total recebido</div><div class="metric-value warn currency" style="font-size:14px">${grandRecv>0?'R$ '+fmt(grandRecv):'—'}</div></div>
+    <div class="metric"><div class="metric-label">Total aprovado</div><div class="metric-value success currency" style="font-size:14px">${grandApr>0?'R$ '+fmt(grandApr):'—'}</div></div>
+    <div class="metric"><div class="metric-label">NF emitida</div><div class="metric-value currency" style="font-size:14px;color:#534AB7">${grandNF>0?'R$ '+fmt(grandNF):'—'}</div></div>
+  </div>`;
+
+  const cards=sorted.map(r=>{
+    const pctProv=Math.round((r.prov/maxRef)*100);
+    const pctRecv=r.recv>0?Math.round((r.recv/maxRef)*100):0;
+    const pctApr=r.apr>0?Math.round((r.apr/maxRef)*100):0;
+    const aprvRate=r.count>0?Math.round((r.aprCount/r.count)*100):0;
+    const nfRate=r.count>0?Math.round((r.nfCount/r.count)*100):0;
+    const recvPct=r.prov>0&&r.recv>0?Math.round((r.recv/r.prov)*100):0;
+    let bars='';
+    if(modo!=='medicao')bars+=`<div class="mensal-bar-wrap"><div class="mensal-bar-label"><span style="color:#185FA5;font-weight:600">Provisão</span><span class="currency">R$ ${fmt(r.prov)}</span></div><div class="mensal-bar-track"><div class="mensal-bar-fill prov" style="width:${pctProv}%"></div></div></div>`;
+    if(modo!=='provisao')bars+=`<div class="mensal-bar-wrap"><div class="mensal-bar-label"><span style="color:#854F0B;font-weight:600">Recebido</span><span class="currency">${r.recv>0?'R$ '+fmt(r.recv):'—'}</span></div><div class="mensal-bar-track"><div class="mensal-bar-fill recv" style="width:${pctRecv}%"></div></div></div>`;
+    bars+=`<div class="mensal-bar-wrap"><div class="mensal-bar-label"><span style="color:#534AB7;font-weight:600">Aprovado</span><span class="currency">${r.apr>0?'R$ '+fmt(r.apr):'—'}</span></div><div class="mensal-bar-track"><div class="mensal-bar-fill apr" style="width:${pctApr}%"></div></div></div>`;
+    return`<div class="mensal-card">
+      <div class="mensal-month">${compLabel(r.comp)}<span>${r.count} obra${r.count>1?'s':''}</span></div>
+      ${bars}
+      <div class="mensal-stats">
+        <div class="mensal-stat"><div class="mensal-stat-val">${aprvRate}%</div><div class="mensal-stat-lbl">Aprovado</div></div>
+        <div class="mensal-stat"><div class="mensal-stat-val">${nfRate}%</div><div class="mensal-stat-lbl">NF emitida</div></div>
+        <div class="mensal-stat"><div class="mensal-stat-val">${recvPct>0?recvPct+'%':'—'}</div><div class="mensal-stat-lbl">Rec/Prov</div></div>
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('mensal').innerHTML=summary+'<div class="mensal-grid">'+cards+'</div>';
+}
+
+// ── Modal helpers ─────────────────────────────────────────────────────────
+
+// ── Dados de centros de custo por empresa ────────────────────────────────────
+const CC_DATA = {
+  'ENERGY SERVIÇOS': [
+    {cod:'1.02.00001',obra:'CONTRATO SOT - 20/22'},
+    {cod:'1.02.00001.02.00001',obra:'SOT LV LUZIANIA'},
+    {cod:'1.02.00001.02.00002',obra:'SOT LV GOIANIA'},
+    {cod:'1.02.00001.02.00003',obra:'SOT LV URUACU'},
+    {cod:'1.02.00001.02.00004',obra:'SOT LV EXTRA'},
+    {cod:'1.02.00001.03.00001',obra:'SOT LM LUZIANIA'},
+    {cod:'1.02.00001.03.00002',obra:'SOT LM GOIANIA'},
+    {cod:'1.02.00001.03.00003',obra:'SOT LM URUACU'},
+    {cod:'1.02.00001.03.00004',obra:'SOT LM OBRAS'},
+    {cod:'1.02.00001.04',obra:'OPERAÇÃO SUBSTAÇÃO'},
+    {cod:'1.02.00001.04.00001',obra:'OP SE GOIANIA'},
+    {cod:'1.02.00001.04.00002',obra:'OP SE ATLANTICO'},
+    {cod:'1.02.00001.04.00003',obra:'OP SE FORMOSA'},
+    {cod:'1.02.00001.04.00004',obra:'OP SE ANAPOLIS UNIVERSITARIO'},
+    {cod:'1.02.00001.04.00005',obra:'OP SE PORANGATU'},
+    {cod:'1.02.00001.04.00006',obra:'OP SE INHUMAS'},
+    {cod:'1.02.00001.04.00007',obra:'OP SE IACIARA'},
+    {cod:'1.02.00001.04.00008',obra:'OP SE CRIXAS'},
+    {cod:'1.02.00001.04.00009',obra:'OP SE SAO DOMINGOS'},
+    {cod:'1.02.00001.04.00010',obra:'OP SE JUSSARA'},
+    {cod:'1.02.00001.04.00011',obra:'OP SE ITUMBIARA'},
+    {cod:'1.02.00001.04.00012',obra:'OP SE ITAPURANGA'},
+    {cod:'1.02.00001.05',obra:'MONTAGEM TRANSFORMADORES'},
+    {cod:'1.02.00001.06',obra:'COMISSIONAMENTO E SPCS-MNT'},
+    {cod:'1.02.00001.07',obra:'PROTECAO E MONTAGEM DE PAINEIS-ENG'},
+    {cod:'1.02.00001.08',obra:'OBRA DE CONSTRUCAO AT'},
+    {cod:'1.02.00001.08.00001',obra:'SDAT ITAPACI T - SMF FRONTEIRA 69KV'},
+    {cod:'1.02.00001.08.00002',obra:'SDAT FERROVIARIO - REVITALIZAR'},
+    {cod:'1.02.00001.08.00003',obra:'SDAT CORUMBA - AMPLIAÇÃO SETOR 13,8KV'},
+    {cod:'1.02.00001.08.00004',obra:'SDAT SAO FRANCISCO - ADEQ E INST DJ AT'},
+    {cod:'1.02.00001.08.00005',obra:'SDAT JARAGUA - NOVO VÃO 13,8KV'},
+    {cod:'1.02.00001.08.00006',obra:'SDAT CRISTALINA - VAO SAO MARCOS'},
+    {cod:'1.02.00001.08.00007',obra:'LDAT ANHANGUERA - DESVIO DALA SDAT ANH'},
+    {cod:'1.02.00001.08.00008',obra:'SDAT APARECIDA - CIVIL'},
+    {cod:'1.02.00001.08.00009',obra:'SDAT INDEPENDENCIA - ANEL 138 KV E PRCF'},
+    {cod:'1.02.00001.08.00010',obra:'SDAT SANTA GENOVEVA - ELETROCENTRO'},
+    {cod:'1.02.00001.08.00011',obra:'SDAT SANTANA - GMG'},
+    {cod:'1.02.00001.08.00012',obra:'SDAT ESTRELA DALVA - DRENAGEM'},
+    {cod:'1.02.00001.08.00013',obra:'CIDADE OCIDENTAL - ECOPONTO'},
+    {cod:'1.02.00001.08.00014',obra:'SDAT RUBIATABA - VAO 13,8KV'},
+    {cod:'1.02.00001.08.00015',obra:'SDAT SAO MIGUEL DO ARAGUAIA - VAO 34,5KV'},
+    {cod:'1.02.00001.08.00016',obra:'SDAT PAMPLONA - 138KV'},
+    {cod:'1.02.00001.08.00017',obra:'SDAT FERROVIARIO - DUPLICACAO DE CABOS'},
+    {cod:'1.02.00001.08.00018',obra:'SDAT ESTRELA DALVA - T2-MH-SPCS'},
+    {cod:'1.02.00001.08.00019',obra:'SDAT SAO DOMINGOS - NOVO VAO 69KV'},
+    {cod:'1.02.00001.08.00020',obra:'SDAT TRINDADE - REMANEJAMENTO DO VÃO'},
+    {cod:'1.02.00001.08.00021',obra:'SDAT XAVANTES - SUBSTITUIÇÃO 8 DJS. E 12 TCS 138KV'},
+    {cod:'1.02.00001.08.00022',obra:'SDAT IACIARA - NOVOS VÃOS 13,8KV'},
+    {cod:'1.02.00001.08.00023',obra:'SDAT PADRE BERNARDO - VÃO 34,5KV'},
+    {cod:'1.02.00001.08.00024',obra:'SDAT SAO JOAO D\'ALIANÇA - VÃO SAÍDA 34,5KV (CLIENTE ENEL)'},
+    {cod:'1.02.00001.08.00025',obra:'SDAT REAL - VÃOS ANHANGUERA E INDEPENDÊNCIA'},
+    {cod:'1.02.00001.08.00026',obra:'SDAT ATLANTICO - TRANSFORMADOR DE CORRENTE 13,8KV'},
+    {cod:'1.02.00001.08.00027',obra:'SDAT ANHANGUERA - DEMOLIÇÃO'},
+    {cod:'1.02.00001.08.00028',obra:'SDAT CEPAÇO - 2 BASES, 1 CÃO, 1 PCF E MURO'},
+    {cod:'1.02.00001.08.00029',obra:'SDAT SERRA DO OURO - 3 VÃOS 138KV E 1 VÃO 69KV'},
+    {cod:'1.02.00001.08.00030',obra:'INFRAESTRUTURA 2 ELETROCENTROS - ALMOXARIFADO ENEL'},
+    {cod:'1.02.00001.08.00031',obra:'SDAT CARAJÁS - SUBSTITUIÇÃO DOS TC\'S DO VÃO DO TRAFO 4'},
+    {cod:'1.02.00001.08.00032',obra:'SDAT MINACU - ETAPA VÃO SÃO JOAQUIM 34,5KV'},
+    {cod:'1.02.00001.08.00033',obra:'SDAT CRISTALINA - VÃO SAVANA'},
+    {cod:'1.02.00001.08.00034',obra:'SDAT ANHANGUERA - SUBST. DJS1.138KV SUPERADO (S. BELA VISTA)'},
+    {cod:'1.02.00001.08.00035',obra:'LDAT RIO VERDE - CARURUÁ - CONSTRUÇÃO DE BASE'},
+    {cod:'1.02.00001.08.00036',obra:'SDAT DAIA - CONSTRUÇÃO DE BACIAS'},
+    {cod:'1.02.00001.08.00037',obra:'SDAT SÃO MIGUEL ARAGUAIA (2X 2C 1800 MVAR)'},
+    {cod:'1.02.00001.08.00038',obra:'SDAT CAMPO LIMPO - SUBSTITUIÇÃO DE TRANSFORMADOR'},
+    {cod:'1.02.00001.08.00039',obra:'SE SAMAMBAIA - PAINEL SMF/SIST TELECOM LD\'S STOAD, EEAB E RVM'},
+    {cod:'1.02.00001.08.00040',obra:'SDAT NERÓPOLIS - SUBSTITUIÇÃO DE TRANSFORMADOR'},
+    {cod:'1.02.00001.08.00041',obra:'SDAT CAMPINOTE 69/13,8KV - SUBST. ELÔ FUSÍVEL POR DJS1'},
+    {cod:'1.02.00001.08.00042',obra:'SDAT PORANGATU - RETROFIT DE RELÉS'},
+    {cod:'1.02.00001.08.00043',obra:'SDAT IACIARA - PLANO CASCATA'},
+    {cod:'1.02.00001.08.00044',obra:'SDAT XAVANTES - VAOS CAMPINAS E ATLANTICO 138KV'},
+    {cod:'1.02.00001.08.00045',obra:'SDAT ATLÂNTICO - SUBSTITUIÇÃO DE BARRAMENTO'},
+    {cod:'1.02.00001.08.00046',obra:'SDAT CARAJÁS - TSA I E CAIXA DEP (SMF)'},
+    {cod:'1.02.00001.08.00047',obra:'(OBSOLETO) LDAT 138KV CORUMBÁ - PIRENÓPOLIS'},
+    {cod:'1.02.00001.08.00048',obra:'(OBSOLETO) SDAT CORUMBÁ - AMPLIAÇÃO LDAT 138KV CRB-PRP C1'},
+    {cod:'1.02.00001.08.00049',obra:'ELETROCENTRO SDAT JK JATAÍ'},
+    {cod:'1.02.00001.08.00050',obra:'SDAT PETROLINA - SUBSTITUIÇÃO DE ELO'},
+    {cod:'1.02.00001.08.00051',obra:'SDAT NOVO PLANALTO - SUBSTITUIÇÃO DE ELO'},
+    {cod:'1.02.00001.08.00052',obra:'SDAT ARUANÃ - VÃO 34,5KV'},
+    {cod:'1.02.00001.08.00053',obra:'SDAT INDEPENDÊNCIA - SUBSTITUIÇÃO TRAFO T1'},
+    {cod:'1.02.00001.08.00054',obra:'SDAT PIRANHAS - SETOR 69/34,5KV'},
+    {cod:'1.02.00001.08.00055',obra:'MODERNIZAÇÃO SPCS - SUBST DE RELÉS ELETROMECÂNICOS'},
+    {cod:'1.02.00001.08.00056',obra:'SDAT PORANGATU - AMPLIAÇÃO VÃO 138KV/13,8KV'},
+    {cod:'1.02.00001.08.00057',obra:'SDAT CEPAIGO - NOVO VÃO'},
+    {cod:'1.02.00001.09',obra:'MANUTENCAO CIVIL'},
+    {cod:'1.02.00001.09.00001',obra:'MANUTENCAO CIVIL'},
+    {cod:'1.02.00001.09.00002',obra:'AGENCIA CAMPOS BELOS'},
+    {cod:'1.02.00001.10.00001',obra:'SDMT GAMELEIRA'},
+    {cod:'1.02.00001.10.00002',obra:'SDMT OURO VERDE'},
+    {cod:'1.02.00001.10.00003',obra:'SDMT BONFINÓPOLIS'},
+    {cod:'1.02.00001.10.00004',obra:'SDMT MATA FEIA'},
+    {cod:'1.02.00001.10.00005',obra:'SDAT ATLANTICO'},
+    {cod:'1.02.00001.10.00006',obra:'SDMT CABECEIRAS'},
+    {cod:'1.02.00001.10.00007',obra:'SDMT PLANALTINA - SUBSTITUIÇÃO DE TRANSFORMADOR'},
+    {cod:'1.02.00001.10.00008',obra:'SDMT CRISTALINA - ENTRADA DE ACESSO À SUBESTAÇÃO'},
+    {cod:'1.02.00001.10.00009',obra:'SDMT NOVO GAMA - BASE PARA TRAFO E MANUT DA ENTRADA DA SDMT'},
+    {cod:'1.02.00001.10.00010',obra:'SDMT LAJES - PLANO CASCATA'},
+    {cod:'1.02.00001.10.00011',obra:'SDMT POSSE - TROCA DE TRANSFORMADOR'},
+    {cod:'1.02.00001.10.00012',obra:'SDMT TRAJANÓPOLIS'},
+    {cod:'1.02.00001.10.00013',obra:'SDMT NOVA VENEZA - PLANO CASCATA'},
+    {cod:'1.02.00001.10.00014',obra:'REDE MT - ALPHAVILLE ARAGUAIA'},
+    {cod:'1.02.00001.10.00015',obra:'REDE MT - SDAT RIVIERA'},
+    {cod:'1.02.00011',obra:'CONTRATO LINHA VIVA REG: AL, PA, MA E RS (EQUATORIAL)'},
+    {cod:'1.02.00011.01',obra:'ESTADO ALAGOAS'},
+    {cod:'1.02.00011.01.00001',obra:'ADMINISTRATIVO AL'},
+    {cod:'1.02.00011.01.00002',obra:'SESMT AL'},
+    {cod:'1.02.00011.01.00003',obra:'MEIO AMBIENTE AL'},
+    {cod:'1.02.00011.01.00004',obra:'LOGÍSTICA AL'},
+    {cod:'1.02.00011.01.00005',obra:'EQUIPE LINHA VIVA AL'},
+    {cod:'1.02.00011.02',obra:'ESTADO PARÁ'},
+    {cod:'1.02.00011.02.00001',obra:'ADMINISTRATIVO PA'},
+    {cod:'1.02.00011.02.00002',obra:'SESMT PA'},
+    {cod:'1.02.00011.02.00003',obra:'MEIO AMBIENTE PA'},
+    {cod:'1.02.00011.02.00004',obra:'LOGÍSTICA PA'},
+    {cod:'1.02.00011.02.00005',obra:'EQUIPE LINHA VIVA PA'},
+    {cod:'1.02.00011.03',obra:'ESTADO RIO GRANDE DO SUL'},
+    {cod:'1.02.00011.03.00001',obra:'ADMINISTRATIVO RS'},
+    {cod:'1.02.00011.03.00002',obra:'SESMT RS'},
+    {cod:'1.02.00011.03.00003',obra:'MEIO AMBIENTE RS'},
+    {cod:'1.02.00011.03.00004',obra:'LOGÍSTICA RS'},
+    {cod:'1.02.00011.03.00005',obra:'EQUIPE LINHA VIVA RS'},
+    {cod:'1.02.00031',obra:'CONTRATO 5000005812024 LINHA VIVA GOIÁS'},
+    {cod:'1.02.00031.01',obra:'LINHA VIVA GOIÂNIA'},
+    {cod:'1.02.00031.02',obra:'LINHA VIVA LUZIÂNIA'},
+    {cod:'1.02.00031.03',obra:'LINHA VIVA URUAÇU'},
+    {cod:'1.02.00031.04',obra:'LINHA VIVA OBRAS'},
+    {cod:'1.02.00033',obra:'ROCHA SERVIÇOS ELÉTRICOS LTDA'},
+    {cod:'1.02.00009.01',obra:'SDAT GOIANIA LESTE - ENSAIOS ELÉTRICOS EM TRANSFORMADOR'},
+    {cod:'1.02.00009.02',obra:'EDP GUARDA-CHUVA COMISSIONAMENTO 5600005594'},
+    {cod:'1.02.00029',obra:'SDAT GOIÁ - AMPLIAÇÃO'},
+    {cod:'1.02.00016',obra:'SDAT ITAPACI - RETROFIT RELÉS'}
+  ],
+  'ENERGY CONSTRUÇÕES': [
+    {cod:'1.01',obra:'ADMINISTRAÇÃO GERAL'},
+    {cod:'1.01.00001',obra:'DIRETORIA'},
+    {cod:'1.01.00002',obra:'ADMINISTRATIVO SEDE'},
+    {cod:'1.01.00003',obra:'ENGENHARIA'},
+    {cod:'1.01.00004',obra:'ESTOQUE'},
+    {cod:'1.01.00005',obra:'BANCOS'},
+    {cod:'1.02',obra:'OBRAS/PROJETOS/EMPREENDIMENTOS/CONTRATOS'},
+    {cod:'1.02.00001',obra:'CONTRATO EQT-GO ANCORA Nº 50000007412025'},
+    {cod:'1.02.00001.01',obra:'OBRAS CONSTRUÇÃO AT ANCORA'},
+    {cod:'1.02.00001.01.00001',obra:'SDAT MOZARLÂNDIA - BANCO DE CAPACITOR'},
+    {cod:'1.02.00001.01.00001.01',obra:'SDAT MOZARLÂNDIA - BANCO DE CAPACITOR - CIVIL'},
+    {cod:'1.02.00001.01.00001.02',obra:'SDAT MOZARLÂNDIA - BANCO DE CAPACITOR - ELETROMECÂNICA'},
+    {cod:'1.02.00001.01.00002',obra:'SDAT SÃO SALVADOR - NOVA SUBESTAÇÃO'},
+    {cod:'1.02.00001.01.00002.01',obra:'SDAT SÃO SALVADOR - NOVA SUBESTAÇÃO - CIVIL'},
+    {cod:'1.02.00001.01.00002.02',obra:'SDAT SÃO SALVADOR - NOVA SUBESTAÇÃO - ELETROMECÂNICA'},
+    {cod:'1.02.00001.01.00003',obra:'SDAT NOVA CRIXAS - BANCO DE CAPACITOR'},
+    {cod:'1.02.00001.01.00003.01',obra:'SDAT NOVA CRIXAS - BANCO DE CAPACITOR - CIVIL'},
+    {cod:'1.02.00001.01.00003.02',obra:'SDAT NOVA CRIXAS - BANCO DE CAPACITOR - ELETROMECÂNICA'},
+    {cod:'1.02.00001.01.00004',obra:'SDAT ARENÓPOLIS - MELHORIA'},
+    {cod:'1.02.00001.01.00005',obra:'SDAT ITABERAI - AMPLIAÇÃO DE POTÊNCIA'},
+    {cod:'1.02.00001.01.00005.01',obra:'SDAT ITABERAI - AMPLIAÇÃO DE POTÊNCIA - CIVIL'},
+    {cod:'1.02.00001.01.00005.02',obra:'SDAT ITABERAI - AMPLIAÇÃO DE POTÊNCIA - ELETROMECÂNICA'},
+    {cod:'1.02.00001.01.00006',obra:'SDAT AEROPORTO - AMPLIAÇÃO DE POTÊNCIA'},
+    {cod:'1.02.00001.01.00006.01',obra:'SDAT AEROPORTO - AMPLIAÇÃO DE POTÊNCIA - CIVIL'},
+    {cod:'1.02.00001.01.00006.02',obra:'SDAT AEROPORTO - AMPLIAÇÃO DE POTÊNCIA - ELETROMECÂNICA'},
+    {cod:'1.02.00001.01.00007',obra:'SDAT BELA VISTA - AMPLIAÇÃO - AUTOMAÇÃO'},
+    {cod:'1.02.00001.01.00008',obra:'SDAT INDEPENDÊNCIA - SUBSTITUIÇÃO TRAFO 01'},
+    {cod:'1.02.00001.01.00008.01',obra:'SDAT INDEPENDÊNCIA - SUBSTITUIÇÃO TRAFO 01 - CIVIL'},
+    {cod:'1.02.00001.01.00008.02',obra:'SDAT INDEPENDÊNCIA - SUBSTITUIÇÃO TRAFO 01 - ELETROMECÂNICA'},
+    {cod:'1.02.00001.01.00009',obra:'SDAT CEPAIGO - NOVO VÃO - 2025'},
+    {cod:'1.02.00001.01.00009.01',obra:'SDAT CEPAIGO - NOVO VÃO - 2025 - CIVIL'},
+    {cod:'1.02.00001.01.00009.02',obra:'SDAT CEPAIGO - NOVO VÃO - 2025 - ELETROMECÂNICA'},
+    {cod:'1.02.00001.01.00010',obra:'SDAT MOZARLANDIA D - AUTOMAÇÃO SUBST TR1'},
+    {cod:'1.02.00001.01.00010.01',obra:'SDAT MOZARLANDIA D - AUTOMAÇÃO SUBST TR1 - CIVIL'},
+    {cod:'1.02.00001.01.00010.02',obra:'SDAT MOZARLANDIA D - AUTOMAÇÃO SUBST TR1 - ELETROMECÂNICA'},
+    {cod:'1.02.00001.01.00011',obra:'SDMT TRAJANOPOLIS - TROCA TRAFO T1 (PLANO CASCATA)'},
+    {cod:'1.02.00001.01.00011.01',obra:'SDMT TRAJANOPOLIS - TROCA TF T1 (PLAN. CASC.) - CIVIL'},
+    {cod:'1.02.00001.01.00011.02',obra:'SDMT TRAJANOPOLIS - TROCA TF T1 (PLAN CASC.) - ELETROMECÂNICA'},
+    {cod:'1.02.00001.01.00012',obra:'SDAT RUBIATABA - RTP'},
+    {cod:'1.02.00001.01.00012.01',obra:'SDAT RUBIATABA - RTP - CIVIL'},
+    {cod:'1.02.00001.01.00012.02',obra:'SDAT RUBIATABA - RTP - ELETROMECÂNICA'},
+    {cod:'1.02.00001.01.00013',obra:'SDAT BOM JESUS - SUBST TR1 - AUTOMAÇÃO'},
+    {cod:'1.02.00001.01.00014',obra:'SDAT ARENÓPOLIS - AMPLIAÇÃO E MELHORIA NA SDAT'},
+    {cod:'1.02.00001.01.00014.01',obra:'SDAT ARENÓPOLIS - AMPLIAÇÃO E MELHORIA NA SDAT - CIVIL'},
+    {cod:'1.02.00001.01.00014.02',obra:'SDAT ARENÓPOLIS - AMPLIAÇÃO E MELHORIA SDAT - ELETROMECÂNICA'},
+    {cod:'1.02.00001.01.00015',obra:'SDAT RIO VERMELHO - SUBST TR1'},
+    {cod:'1.02.00001.01.00016',obra:'SDAT RIO CLARO - RTP'},
+    {cod:'1.02.00001.01.00017',obra:'SDAT PORANGATU'},
+    {cod:'1.02.00001.01.00017.01',obra:'SDAT PORANGATU - CIVIL'},
+    {cod:'1.02.00001.01.00017.02',obra:'SDAT PORANGATU - ELETROMECÂNICA'},
+    {cod:'1.02.00001.01.00018',obra:'SDAT NOVO GAMA - SUBST TR1'},
+    {cod:'1.02.00001.01.00018.01',obra:'SDAT NOVO GAMA - CIVIL'},
+    {cod:'1.02.00001.01.00018.02',obra:'SDAT NOVO GAMA - ELETROMECÂNICA'},
+    {cod:'1.02.00001.01.00019',obra:'CADASTRAR OBRA NOVA'},
+    {cod:'1.02.00001.01.00020',obra:'SDAT CARAJAS - SUBST TR6'},
+    {cod:'1.02.00001.01.00020.01',obra:'SDAT CARAJAS - SUBST TR6 - CIVIL'},
+    {cod:'1.02.00001.01.00020.02',obra:'SDAT CARAJAS - SUBST TR6 - ELETROMECÂNICA'},
+    {cod:'1.02.00001.01.00021',obra:'SE CODENE - AUTOMAÇÃO'},
+    {cod:'1.02.00001.01.00021.01',obra:'SE CODENE - OBRA CIVIL'},
+    {cod:'1.02.00001.01.00021.02',obra:'SE CODENE - OBRA ELÉTRICA'},
+    {cod:'1.02.00001.01.00022',obra:'SDAT TRÊS MARIAS - IMPLANTAÇÃO'},
+    {cod:'1.02.00001.01.00022.01',obra:'SDAT TRÊS MARIAS - CIVIL - IMPLANTAÇÃO'},
+    {cod:'1.02.00001.01.00022.02',obra:'SDAT TRÊS MARIAS - ELETROMECÂNICA - IMPLANTAÇÃO'},
+    {cod:'1.02.00001.01.00023',obra:'SDAT CORUMBÁ - BANCO DE CAPACITOR'},
+    {cod:'1.02.00001.01.00023.01',obra:'SDAT CORUMBÁ - CIVIL - BANCO DE CAPACITOR'},
+    {cod:'1.02.00001.01.00023.02',obra:'SDAT CORUMBÁ - ELETROMECÂNICA - BANCO DE CAPACITOR'},
+    {cod:'1.02.00001.01.00024',obra:'SDAT HIDROLÂNDIA - DRENAGEM'},
+    {cod:'1.02.00001.01.00024.01',obra:'SDAT HIDROLÂNDIA - CIVIL - DRENAGEM'},
+    {cod:'1.02.00001.01.00024.02',obra:'SDAT HIDROLÂNDIA - ELETROMECÂNICA - DRENAGEM'},
+    {cod:'1.02.00001.01.00025',obra:'SDAT SANTA CECÍLIA - CIVIL - TERRAPLANAGEM'},
+    {cod:'1.02.00001.01.00026',obra:'SDAT ITAPACI - RETROFIT'},
+    {cod:'1.02.00001.02',obra:'LINHA MORTA ANCORA'},
+    {cod:'1.02.00001.02.00001',obra:'ANCORA LM - OBRAS'},
+    {cod:'1.02.00001.02.00002',obra:'ANCORA LM - GOIANIA'},
+    {cod:'1.02.00001.02.00003',obra:'ANCORA LM - LUZIANIA'},
+    {cod:'1.02.00001.02.00004',obra:'ANCORA LM - URUACU'},
+    {cod:'1.02.00001.03',obra:'MANUTENÇÃO CIVIL ANCORA'},
+    {cod:'1.02.00001.03.00001',obra:'MANUTENÇÃO CIVIL - EQUIPE 01'},
+    {cod:'1.02.00001.03.00002',obra:'MANUTENÇÃO CIVIL - EQUIPE 02'},
+    {cod:'1.02.00001.03.00003',obra:'MANUTENÇÃO CIVIL - EQUIPE 03'},
+    {cod:'1.02.00001.03.00004',obra:'MANUTENÇÃO CIVIL - EQUIPE 04'},
+    {cod:'1.02.00001.04',obra:'AUTOMAÇÃO/SPCS - ÂNCORA'},
+    {cod:'1.02.00001.05',obra:'COMISSIONAMENTO - ÂNCORA'},
+    {cod:'1.02.00002',obra:'EDP GUARDA-CHUVA COMISSIONAMENTO 5600005594'},
+    {cod:'1.02.00003',obra:'GOEMIL S/A INDUSTRIA DE PRODUTOS ALIMENTICIOS'},
+    {cod:'1.02.00004',obra:'AHL PULP INDUSTRIA DE ALIMENTOS S.A'},
+    {cod:'1.02.00005',obra:'HOTELARIA ACCOR BRASIL S/A'},
+    {cod:'1.02.00005.01',obra:'HOTEL IBIS STYLES - SETOR MARISTA'},
+    {cod:'1.02.00006',obra:'CONDOMINIO EDIFICIO VERA LUCIA'},
+    {cod:'1.02.00007',obra:'SUPERINTENDÊNCIA REGIONAL DA POLICIA FEDERAL GO - PF GO'},
+    {cod:'1.02.00008',obra:'TEKNO SISTEMAS DE ENGENHARIA LTDA'},
+    {cod:'1.02.00009',obra:'TSE AUTOMACAO INDUSTRIAL LTDA (TSE ENERGIA & AUTOMACAO)'},
+    {cod:'1.02.00010',obra:'ENGENHARIA SAO PATRICIO LTDA'},
+    {cod:'1.02.00011',obra:'SANEAMENTO DE GOIÁS S.A - SANEAGO'},
+    {cod:'1.02.00011.01',obra:'SANEAGO - CAPTACAO EAB PIANCO 1'},
+    {cod:'1.02.00012',obra:'VUPER ENGENHARIA E INSTALAÇÕES'},
+    {cod:'1.02.00013',obra:'FAZENDA SÃO MIGUEL - MILTON CESAR ZANCANARO'}
+  ]
+};
+
+// ── Custom dropdown: funções compartilhadas ───────────────────────────────────
+function cselToggle(id){
+  const panel=document.getElementById(id+'-panel');
+  const btn=document.getElementById(id+'-btn');
+  const isOpen=panel.style.display!=='none';
+  // Fecha todos
+  ['contrato','cc'].forEach(k=>{
+    document.getElementById(k+'-panel').style.display='none';
+    document.getElementById(k+'-btn').classList.remove('open');
+  });
+  if(!isOpen){
+    panel.style.display='block';
+    btn.classList.add('open');
+    if(id==='cc'){
+      const si=document.getElementById('cc-search');
+      if(si){si.value='';cselFiltrarCC();si.focus();}
+    }
+  }
+}
+
+document.addEventListener('click',e=>{
+  const wraps=['contrato-wrap','cc-wrap'];
+  const inside=wraps.some(w=>document.getElementById(w)?.contains(e.target));
+  if(!inside){
+    ['contrato','cc'].forEach(k=>{
+      const p=document.getElementById(k+'-panel');
+      const b=document.getElementById(k+'-btn');
+      if(p) p.style.display='none';
+      if(b) b.classList.remove('open');
+    });
+  }
+});
+
+function cselSelectContrato(num,nome,empresa){
+  document.getElementById('f-cnum').value=num;
+  document.getElementById('f-cnome').value=nome;
+  const isEC=empresa==='ENERGY CONSTRUÇÕES';
+  const badge=isEC?'EC':'ES';
+  const cls=isEC?'ec':'es';
+  const numLabel=num||'—';
+  document.getElementById('contrato-display').innerHTML=
+    `<span class="${cls}" style="flex-shrink:0">${badge}</span><b style="margin-left:4px;min-width:90px">${numLabel}</b><span style="color:#555;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${nome}</span>`;
+  document.getElementById('contrato-display').classList.remove('csel-placeholder');
+  document.getElementById('contrato-panel').style.display='none';
+  document.getElementById('contrato-btn').classList.remove('open');
+}
+
+function cselSelectCC(cod,obra){
+  document.getElementById('f-cod').value=cod;
+  document.getElementById('cc-display').innerHTML=
+    `<span style="font-size:10px;font-weight:700;color:#185FA5;flex-shrink:0">${cod}</span><span style="color:#333;margin-left:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${obra}</span>`;
+  document.getElementById('cc-display').classList.remove('csel-placeholder');
+  document.getElementById('cc-panel').style.display='none';
+  document.getElementById('cc-btn').classList.remove('open');
+  if(obra) document.getElementById('f-obra').value=obra;
+}
+
+function cselFiltrarCC(){
+  const q=(document.getElementById('cc-search')?.value||'').toLowerCase();
+  const empresa=document.getElementById('f-empresa')?.value||'';
+  const lista=CC_DATA[empresa]||[];
+  const filtered=q?lista.filter(cc=>cc.cod.toLowerCase().includes(q)||cc.obra.toLowerCase().includes(q)):lista;
+  document.getElementById('cc-list').innerHTML=filtered.length
+    ?filtered.map(cc=>`<div class="csel-opt" onclick="cselSelectCC('${cc.cod.replace(/'/g,"\\'")}','${cc.obra.replace(/'/g,"\\'").replace(/"/g,'&quot;')}')"><span style="font-weight:700;color:#185FA5;font-size:10px;flex-shrink:0;min-width:160px">${cc.cod}</span><span style="color:#333;font-size:12px">${cc.obra}</span></div>`).join('')
+    :'<div style="padding:10px;color:#aaa;font-size:12px;text-align:center">Nenhum resultado</div>';
+}
+
+function modalPopularGestor(valorAtual){
+  const sel=document.getElementById('f-gestor');
+  const gestores=[...new Set(data.map(d=>d.gestor).filter(Boolean))].sort();
+  if(valorAtual&&!gestores.includes(valorAtual))gestores.unshift(valorAtual);
+  sel.innerHTML=gestores.map(g=>`<option value="${g}">${g}</option>`).join('');
+  if(valorAtual)sel.value=valorAtual;
+}
+
+function modalPopularContrato(empresa,valorAtual){
+  const seen=new Set();
+  // Contratos vindos das provisões já cadastradas
+  const fromData=data
+    .filter(d=>!empresa||d.empresa===empresa)
+    .filter(d=>{
+      const k=d.contrato_num||'__sem__';
+      if(seen.has(k))return false;
+      seen.add(k);return true;
+    })
+    .map(d=>({contrato_num:d.contrato_num,contrato_nome:d.contrato_nome,empresa:d.empresa}));
+  // Contratos da tabela contratos que ainda não têm provisões
+  const fromSaldos=Object.values(saldos)
+    .filter(c=>c.num&&(!empresa||c.empresa===empresa)&&!seen.has(c.num))
+    .map(c=>({contrato_num:c.num,contrato_nome:c.nome,empresa:c.empresa||empresa}));
+  const contratos=[...fromData,...fromSaldos]
+    .sort((a,b)=>(a.contrato_num||'').localeCompare(b.contrato_num||''));
+  document.getElementById('contrato-list').innerHTML=contratos.map(c=>{
+    const isEC=c.empresa==='ENERGY CONSTRUÇÕES';
+    const badge=isEC?'EC':'ES';
+    const cls=isEC?'ec':'es';
+    const numLabel=c.contrato_num||'—';
+    const nomeEsc=(c.contrato_nome||'').replace(/'/g,"\\'");
+    const numEsc=(c.contrato_num||'').replace(/'/g,"\\'");
+    const empEsc=(c.empresa||'').replace(/'/g,"\\'");
+    return`<div class="csel-opt" onclick="cselSelectContrato('${numEsc}','${nomeEsc}','${empEsc}')"><span class="${cls}" style="flex-shrink:0">${badge}</span><b style="min-width:100px;font-size:12px">${numLabel}</b><span style="color:#555;font-size:12px">${c.contrato_nome||''}</span></div>`;
+  }).join('');
+  // Definir valor atual
+  if(valorAtual){
+    const found=data.find(d=>d.contrato_num===valorAtual)
+      || (saldos[valorAtual]?{contrato_num:saldos[valorAtual].num,contrato_nome:saldos[valorAtual].nome,empresa:saldos[valorAtual].empresa||''}:null);
+    if(found)cselSelectContrato(found.contrato_num,found.contrato_nome||'',found.empresa||'');
+  } else {
+    document.getElementById('contrato-display').textContent='Selecione o contrato...';
+    document.getElementById('contrato-display').className='csel-placeholder';
+  }
+}
+
+function modalPopularCC(empresa,valorAtual){
+  cselFiltrarCC();
+  if(valorAtual){
+    const lista=CC_DATA[empresa]||[];
+    const cc=lista.find(c=>c.cod===valorAtual);
+    if(cc){cselSelectCC(cc.cod,cc.obra);}
+    else{
+      document.getElementById('f-cod').value=valorAtual;
+      document.getElementById('cc-display').innerHTML=`<span style="font-size:10px;font-weight:700;color:#185FA5">${valorAtual}</span>`;
+      document.getElementById('cc-display').classList.remove('csel-placeholder');
+    }
+  } else {
+    document.getElementById('cc-display').textContent='Selecione o centro de custo...';
+    document.getElementById('cc-display').className='csel-placeholder';
+  }
+}
+
+function onModalEmpresaChange(){
+  const emp=document.getElementById('f-empresa').value;
+  modalPopularContrato(emp,'');
+  modalPopularCC(emp,'');
+  document.getElementById('f-cnum').value='';
+  document.getElementById('f-cnome').value='';
+  document.getElementById('f-cod').value='';
+  document.getElementById('f-obra').value='';
+}
+// Removidas: onModalContratoSelect, onModalCCSelect (substituídas pelas csel* acima)
+
+function openModal(id=null){
+  editId=id;
+  document.getElementById('modal-title').textContent=id?'Editar provisão':'Nova provisão';
+  if(id){
+    const i=data.find(x=>x.id===id);
+    if(!i){document.getElementById('overlay').classList.add('open');return;}
+    const emp=i.empresa||'ENERGY CONSTRUÇÕES';
+    document.getElementById('f-empresa').value=emp;
+    modalPopularGestor(i.gestor||'');
+    modalPopularContrato(emp, i.contrato_num||'');
+    modalPopularCC(emp, i.cod||'');
+    document.getElementById('f-cnum').value=i.contrato_num||'';
+    document.getElementById('f-cnome').value=i.contrato_nome||'';
+    document.getElementById('f-cod').value=i.cod||'';
+    document.getElementById('f-obra').value=i.obra||'';
+    document.getElementById('f-comp').value=i.comp||'';
+    document.getElementById('f-provisao').value=i.provisao||'';
+    // Campos ocultos — preserva valores existentes para não perder dados ao editar
+    document.getElementById('f-medicao').value=i.medicao||'';
+    document.getElementById('f-pedido').value=i.pedido||'';
+    document.getElementById('f-nf').value=i.nf||'';
+    document.getElementById('f-venc').value=i.venc_nf||'';
+    document.getElementById('f-ret').value=i.retencao||'';
+    document.getElementById('f-imp').value=i.impostos||'';
+    document.getElementById('f-status').value=i.status||'previsto';
+    document.getElementById('f-obs').value=i.obs||'';
+  } else {
+    const emp='ENERGY CONSTRUÇÕES';
+    document.getElementById('f-empresa').value=emp;
+    modalPopularGestor('');
+    modalPopularContrato(emp,'');
+    modalPopularCC(emp,'');
+    ['f-cnum','f-cnome','f-obra','f-cod','f-medicao','f-pedido',
+     'f-nf','f-venc','f-ret','f-imp','f-obs'].forEach(fid=>document.getElementById(fid).value='');
+    document.getElementById('f-folha').value='';
+    document.getElementById('f-status').value='previsto';
+    document.getElementById('f-provisao').value='';
+    // Competência padrão = mês atual
+    const hoje=new Date();
+    document.getElementById('f-comp').value=`${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}`;
+  }
+  document.getElementById('overlay').classList.add('open');
+}
+function closeModal(){document.getElementById('overlay').classList.remove('open');editId=null;}
+function closeOnOverlay(e){if(e.target===document.getElementById('overlay'))closeModal();}
+function editItem(id){openModal(id);}
+function autoStatus(){
+  // Mantido para compatibilidade — status gerenciado pelos campos ocultos
+}
+
+function editSaldo(num,nome){
+  document.getElementById('s-num').value=num;
+  document.getElementById('s-nome').value=nome;
+  document.getElementById('s-saldo').value=saldos[num]?saldos[num].saldo:'';
+  document.getElementById('overlay-saldo').classList.add('open');
+}
+function closeSaldo(){document.getElementById('overlay-saldo').classList.remove('open');}
+async function salvarSaldo(){
+  const num=document.getElementById('s-num').value;
+  const nome=document.getElementById('s-nome').value.trim();
+  const saldo=parseFloat(document.getElementById('s-saldo').value)||0;
+  const r=await fetch('/api/contratos/'+encodeURIComponent(num),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({nome,saldo})});
+  if(r.ok){saldos[num]={num,nome,saldo};closeSaldo();renderResumo();toast('Saldo atualizado!');}
+  else toast('Erro ao salvar.');
+}
+
+// ── CRUD ──────────────────────────────────────────────────────────────────
+
+function toggleSelect(id,checked){if(checked)selectedIds.add(id);else selectedIds.delete(id);updateBulkBtn();}
+function updateBulkBtn(){const btn=document.getElementById('btn-del-selected');btn.disabled=selectedIds.size===0;btn.textContent=selectedIds.size>0?`🗑 Solicitar exclusão (${selectedIds.size})`:'🗑 Solicitar exclusão';}
+
+async function salvar(){
+  const obra=document.getElementById('f-obra').value.trim();
+  const comp=document.getElementById('f-comp').value;
+  if(!obra){alert('Informe a Obra / Descrição.');return;}
+  if(!comp){alert('Selecione a Competência (mês/ano).');return;}
+  const body={
+    empresa:document.getElementById('f-empresa').value,
+    gestor:document.getElementById('f-gestor').value,
+    contrato_num:document.getElementById('f-cnum').value.trim(),
+    contrato_nome:document.getElementById('f-cnome').value.trim(),
+    obra, cod:document.getElementById('f-cod').value.trim(),
+    comp:document.getElementById('f-comp').value,
+    provisao:document.getElementById('f-provisao').value||0,
+    medicao:document.getElementById('f-medicao').value||null,
+    pedido:document.getElementById('f-pedido').value.trim()||document.getElementById('f-folha').value||'',
+    nf:document.getElementById('f-nf').value.trim(),
+    venc_nf:document.getElementById('f-venc').value,
+    retencao:document.getElementById('f-ret').value||null,
+    impostos:document.getElementById('f-imp').value||null,
+    status:document.getElementById('f-status').value,
+    obs:document.getElementById('f-obs').value.trim()
+  };
+  // Edição de linha existente: admin e financeiro salvam direto; outros solicitam aprovação
+  const canDirectEdit = window.currentRole === 'admin' || window.currentRole === 'financeiro';
+  if(editId && !canDirectEdit){
+    const r=await fetch('/api/edit-requests',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({medicao_id:editId,changes:body})});
+    if(r.ok){
+      const res=await r.json();
+      toast(`✓ Solicitação enviada — protocolo ${res.protocol}`);
+      closeModal();
+      loadMinhasSolicitacoes();
+    } else toast('Erro ao enviar solicitação.');
+    return;
+  }
+  const url=editId?'/api/medicoes/'+editId:'/api/medicoes';
+  const r=await fetch(url,{method:editId?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  if(r.ok){toast(editId?'Atualizado!':'Salvo!');closeModal();load();loadFolhas();}
+  else toast('Erro ao salvar.');
+}
+
+async function del(id){
+  if(!confirm('Solicitar exclusão desta linha?'))return;
+  const r=await fetch('/api/medicoes/'+id+'/solicitar-exclusao',{method:'POST'});
+  if(r.ok){toast('Solicitação enviada.');load();}
+  else toast('Erro ao excluir.');
+}
+
+async function delSelected(){
+  if(!selectedIds.size)return;
+  if(!confirm(`Solicitar exclusão de ${selectedIds.size} item(ns)?`))return;
+  let ok=0;
+  for(const id of [...selectedIds]){const r=await fetch('/api/medicoes/'+id+'/solicitar-exclusao',{method:'POST'});if(r.ok)ok++;}
+  selectedIds.clear();toast(ok+' solicitação(ões) enviada(s).');load();
+}
+
+async function loadMinhasSolicitacoes(){
+  const r=await fetch('/api/edit-requests/minhas');
+  if(!r.ok)return;
+  const rows=await r.json();
+  const section=document.getElementById('minhas-solicitacoes-section');
+  const box=document.getElementById('minhas-solicitacoes');
+  if(!rows.length){section.style.display='none';return;}
+  section.style.display='block';
+  const stMap={pendente:{label:'Pendente',cls:'b-val'},aprovado:{label:'Aprovado',cls:'b-apr'},rejeitado:{label:'Rejeitado',cls:'b-atras'}};
+  const fieldLabels={provisao:'Provisão',medicao:'Medição',pedido:'Pedido/Folha',nf:'NF',venc_nf:'Venc. NF',status:'Status',obs:'Observações',gestor:'Gestor',empresa:'Empresa',contrato_num:'Contrato',contrato_nome:'Nome contrato',obra:'Obra',cod:'Cód. CC',comp:'Competência',retencao:'Retenção',impostos:'Impostos'};
+  const statusLabels={previsto:'Previsão',medicao:'Medição recebida',validado:'Validado',aprovado:'Aprovado',nf_emitida:'NF emitida'};
+  box.innerHTML=`<div style="overflow-x:auto"><table>
+    <thead><tr><th>Protocolo</th><th>Obra</th><th>Competência</th><th>O que foi solicitado</th><th>Enviado em</th><th>Status</th><th>Resolvido em</th></tr></thead>
+    <tbody>${rows.map(x=>{
+      const st=stMap[x.status]||{label:x.status,cls:'b-prev'};
+      let changes={};try{changes=JSON.parse(x.changes||'{}');}catch{}
+      const current=data.find(d=>d.id===x.medicao_id)||{};
+      const linhas=Object.entries(changes)
+        .filter(([k,v])=>fieldLabels[k]&&String(v||'')!==String(current[k]||''))
+        .map(([k,v])=>{
+          const lbl=fieldLabels[k];
+          const oldVal=k==='status'?(statusLabels[current[k]]||current[k]||'—'):(k==='comp'?compLabel(current[k]):String(current[k]||'—'));
+          const newVal=k==='status'?(statusLabels[v]||v||'—'):(k==='comp'?compLabel(v):(k.includes('provisao')||k.includes('medicao')||k.includes('retencao')||k.includes('impostos')?'R$ '+fmt(v):String(v||'—')));
+          return`<div style="font-size:11px;margin-bottom:2px"><span style="color:#888">${lbl}:</span> <span style="color:#999;text-decoration:line-through">${oldVal}</span> → <b style="color:#185FA5">${newVal}</b></div>`;
+        }).join('');
+      return`<tr>
+        <td style="font-weight:700;font-size:12px;white-space:nowrap;color:#534AB7">${x.protocol||'—'}</td>
+        <td style="font-size:12px;font-weight:600;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${x.obra||'—'}</td>
+        <td style="font-size:11px;white-space:nowrap">${compLabel(x.comp)||'—'}</td>
+        <td style="max-width:280px">${linhas||'<span style="color:#ccc;font-size:11px">sem alterações detectadas</span>'}</td>
+        <td style="font-size:11px;white-space:nowrap">${x.requested_at?fmtDate(x.requested_at.slice(0,10)):'—'}</td>
+        <td><span class="badge ${st.cls}">${st.label}</span></td>
+        <td style="font-size:11px;white-space:nowrap">${x.resolved_at?fmtDate(x.resolved_at.slice(0,10)):'—'}</td>
+      </tr>`;
+    }).join('')}</tbody></table></div>`;
+}
+
+async function loadEditRequests(){
+  const section=document.getElementById('edit-requests-section');
+  const box=document.getElementById('edit-requests');
+  if(window.currentRole!=='admin' && window.currentRole!=='financeiro'){section.style.display='none';return;}
+  const r=await fetch('/api/edit-requests');
+  const rows=await r.json();
+  if(!r.ok){section.style.display='none';return;}
+  section.style.display='block';
+  if(!rows.length){box.innerHTML='<div class="empty" style="padding:1rem 0">Sem solicitações de edição.</div>';return;}
+  const STATUS_LABELS={'previsto':'Previsão','medicao':'Medição recebida','validado':'Validado','aprovado':'Aprovado','nf_emitida':'NF emitida'};
+  box.innerHTML=`<div style="overflow-x:auto"><table>
+    <thead><tr><th>Solicitante</th><th>Obra</th><th>Contrato</th><th>Competência</th><th>Alterações</th><th>Quando</th><th></th></tr></thead>
+    <tbody>${rows.map(x=>{
+      let changes={};try{changes=JSON.parse(x.changes||'{}');}catch{}
+      const current=data.find(d=>d.id===x.medicao_id)||{};
+      const diffs=Object.entries(changes).filter(([k,v])=>{
+        const skip=['empresa','gestor','contrato_num','contrato_nome','obra','cod','comp'];
+        if(skip.includes(k))return false;
+        return String(v||'')!==String(current[k]||'');
+      }).map(([k,v])=>`<span style="font-size:11px"><b>${k}</b>: <span style="color:#999">${current[k]||'—'}</span> → <span style="color:#185FA5">${v||'—'}</span></span>`).join('<br>');
+      return`<tr>
+        <td>${x.requested_by||'—'}</td>
+        <td style="font-weight:600">${x.obra||'—'}</td>
+        <td style="font-size:11px">${x.contrato_num||'—'}</td>
+        <td style="font-size:11px">${compLabel(x.comp)||'—'}</td>
+        <td style="font-size:11px;max-width:220px">${diffs||'<span style="color:#999">sem diff</span>'}</td>
+        <td style="font-size:11px;white-space:nowrap">${x.requested_at?fmtDate(x.requested_at.slice(0,10)):'—'}</td>
+        <td style="display:flex;gap:6px">
+          <button class="btn sm primary" onclick="approveEdit('${x.id}')">Aprovar</button>
+          <button class="btn sm danger" onclick="rejectEdit('${x.id}')">Rejeitar</button>
+        </td>
+      </tr>`;
+    }).join('')}</tbody></table></div>`;
+}
+async function approveEdit(id){if(!confirm('Aprovar edição?'))return;const r=await fetch('/api/edit-requests/'+id+'/approve',{method:'POST'});if(r.ok){toast('Edição aprovada.');load();}loadEditRequests();}
+async function rejectEdit(id){if(!confirm('Rejeitar edição?'))return;const r=await fetch('/api/edit-requests/'+id+'/reject',{method:'POST'});if(r.ok)toast('Edição rejeitada.');loadEditRequests();}
+
+async function loadDeleteRequests(){
+  const section=document.getElementById('delete-requests-section');
+  const box=document.getElementById('delete-requests');
+  if(window.currentRole!=='admin' && window.currentRole!=='financeiro'){section.style.display='none';return;}
+  const r=await fetch('/api/delete-requests');
+  const rows=await r.json();
+  if(!r.ok){section.style.display='block';box.innerHTML='<div class="empty">Erro.</div>';return;}
+  section.style.display='block';
+  box.innerHTML=rows.length?`<div style="overflow-x:auto"><table>
+    <thead><tr><th>Solicitante</th><th>Obra</th><th>Contrato</th><th>Competência</th><th>Quando</th><th></th></tr></thead>
+    <tbody>${rows.map(x=>`<tr>
+      <td>${x.requested_by||'—'}</td><td>${x.obra||'—'}</td>
+      <td>${x.contrato_num||'—'}</td><td>${x.comp||'—'}</td>
+      <td>${x.requested_at?fmtDate(x.requested_at.slice(0,10)):'—'}</td>
+      <td style="display:flex;gap:6px">
+        <button class="btn sm primary" onclick="approveDelete('${x.id}')">Aprovar</button>
+        <button class="btn sm danger" onclick="rejectDelete('${x.id}')">Rejeitar</button>
+      </td>
+    </tr>`).join('')}</tbody></table></div>`:
+    '<div class="empty" style="padding:1rem 0">Sem solicitações.</div>';
+}
+async function approveDelete(id){if(!confirm('Aprovar?'))return;const r=await fetch('/api/delete-requests/'+id+'/approve',{method:'POST'});if(r.ok){toast('Excluído.');load();}loadDeleteRequests();}
+async function rejectDelete(id){if(!confirm('Rejeitar?'))return;const r=await fetch('/api/delete-requests/'+id+'/reject',{method:'POST'});if(r.ok)toast('Rejeitado.');loadDeleteRequests();}
+
+// ── Importação (Modelo_Medicoes.xlsx) ─────────────────────────────────────
+let importRows=[];
+
+async function iniciarImport(event){
+  const file=event.target.files[0];if(!file)return;
+  const savedFile=file;
+  event.target.value='';
+  document.getElementById('import-title').textContent='Importar Modelo de Medições';
+  document.getElementById('import-body').innerHTML='<p style="color:#666;font-size:13px">Lendo arquivo...</p>';
+  document.getElementById('btn-confirmar-import').disabled=true;
+  document.getElementById('overlay-import').classList.add('open');
+  const fd=new FormData();fd.append('arquivo',savedFile);
+  try{
+    const r=await fetch(location.origin+'/api/importar/preview',{method:'POST',body:fd});
+    if(r.redirected&&r.url.includes('/login')){document.getElementById('import-body').innerHTML='<p style="color:#A32D2D">Sessão expirada.</p>';return;}
+    if(!r.ok){const txt=await r.text();document.getElementById('import-body').innerHTML=`<p style="color:#A32D2D">Erro (${r.status}): ${txt.slice(0,300)}</p>`;return;}
+    const res=await r.json();
+    if(res.erro){document.getElementById('import-body').innerHTML=`<p style="color:#A32D2D">${res.erro}</p>`;return;}
+    importRows=res.rows;
+    const st=res.preview.map(r=>`<tr>
+      <td style="font-size:11px">${r.empresa==='ENERGY CONSTRUÇÕES'?'<span class="ec">EC</span>':'<span class="es">ES</span>'}</td>
+      <td style="font-size:11px">${r.gestor||'—'}</td>
+      <td style="font-size:11px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.obra||'—'}</td>
+      <td style="font-size:11px;white-space:nowrap">${compLabel(r.comp)}</td>
+      <td style="font-size:11px" class="currency">R$ ${fmt(r.provisao)}</td>
+    </tr>`).join('');
+    document.getElementById('import-body').innerHTML=`
+      <div style="background:#EAF3DE;border-radius:8px;padding:10px 14px;margin-bottom:1rem;font-size:13px;color:#3B6D11">
+        <strong>${res.total} linha${res.total>1?'s':''}</strong> encontrada${res.total>1?'s':''} no arquivo.
+      </div>
+      <div style="overflow-x:auto"><table><thead><tr><th>Emp.</th><th>Gestor</th><th>Obra</th><th>Competência</th><th>Valor</th></tr></thead><tbody>${st}</tbody></table></div>
+      ${res.total>res.preview.length?`<p style="font-size:11px;color:#999;margin-top:6px">... e mais ${res.total-res.preview.length} linha(s)</p>`:''}`;
+    document.getElementById('btn-confirmar-import').disabled=false;
+  }catch(e){
+    document.getElementById('import-body').innerHTML=`<p style="color:#A32D2D">Erro: ${e.message}</p>`;
+  }
+}
+
+async function confirmarImport(){
+  if(!importRows.length)return;
+  document.getElementById('btn-confirmar-import').disabled=true;
+  document.getElementById('btn-confirmar-import').textContent='Importando...';
+  const r=await fetch(location.origin+'/api/importar/salvar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({rows:importRows})});
+  const res=await r.json();
+  if(res.erro)toast('Erro: '+res.erro);
+  else{closeImport();toast(`✓ ${res.inseridas} nova(s) inserida(s), ${res.atualizadas} atualizada(s).`);load();}
+  document.getElementById('btn-confirmar-import').disabled=false;
+  document.getElementById('btn-confirmar-import').textContent='Confirmar importação';
+}
+function closeImport(){document.getElementById('overlay-import').classList.remove('open');importRows=[];}
+function closeImportOnOverlay(e){if(e.target===document.getElementById('overlay-import'))closeImport();}
+
+// ── Gerenciar Usuários (admin) ────────────────────────────────────────────
+let usuarioEditId=null;
+const ROLE_LABELS={admin:'Admin',engenharia:'Engenharia',financeiro:'Financeiro'};
+const ROLE_CLS={admin:'role-admin',engenharia:'role-engenharia',financeiro:'role-financeiro'};
+
+function openUsuarios(){
+  const sec=document.getElementById('usuarios-section');
+  if(sec){sec.style.display='block';sec.scrollIntoView({behavior:'smooth',block:'start'});}
+  loadUsuarios();
+}
+
+async function loadUsuarios(){
+  const box=document.getElementById('usuarios-container');
+  if(!box)return;
+  const r=await fetch('/api/usuarios');
+  if(!r.ok){box.innerHTML='<div class="empty">Sem permissão.</div>';return;}
+  const rows=await r.json();
+  if(!rows.length){box.innerHTML='<div class="empty">Nenhum usuário cadastrado.</div>';return;}
+  // Busca quem está online para cruzar
+  let onlineNow=[];
+  try{const ro=await fetch('/api/online');if(ro.ok)onlineNow=await ro.json();}catch{}
+  const onlineSet=new Set(onlineNow.map(x=>x.username));
+  box.innerHTML=`<div style="overflow-x:auto"><table>
+    <thead><tr><th>Username</th><th>Nome</th><th>Perfil</th><th>Status</th><th>Online</th><th>Criado em</th><th></th></tr></thead>
+    <tbody>${rows.map(u=>{
+      const isOnline=onlineSet.has(u.username);
+      const onlineInfo=onlineNow.find(x=>x.username===u.username);
+      const lastSeen=onlineInfo?`<span style="font-size:10px;color:#22c55e;font-weight:700">● Agora</span>`:`<span style="font-size:10px;color:#ccc">● Offline</span>`;
+      return`<tr>
+        <td style="font-weight:700;font-size:12px">${u.username}</td>
+        <td style="font-size:12px">${u.nome||'—'}</td>
+        <td><span class="role-badge ${ROLE_CLS[u.role]||''}">${ROLE_LABELS[u.role]||u.role}</span></td>
+        <td><span class="badge ${u.ativo?'b-apr':'b-atras'}">${u.ativo?'Ativo':'Inativo'}</span></td>
+        <td>${lastSeen}</td>
+        <td style="font-size:11px;white-space:nowrap">${u.created_at?fmtDate(u.created_at.slice(0,10)):'—'}</td>
+        <td style="display:flex;gap:6px">
+          <button class="btn sm" onclick='editUsuario(${JSON.stringify(u)})'>✏ Editar</button>
+          ${u.username!==window.currentUser?`<button class="btn sm danger" onclick="desativarUsuario('${u.id}','${u.username}',${u.ativo})">${u.ativo?'Desativar':'Reativar'}</button>`:''}
+        </td>
+      </tr>`;
+    }).join('')}</tbody></table></div>`;
+}
+
+function openNovoUsuario(){
+  usuarioEditId=null;
+  document.getElementById('u-modal-title').textContent='Novo usuário';
+  document.getElementById('u-username').value='';
+  document.getElementById('u-username').readOnly=false;
+  document.getElementById('u-nome').value='';
+  document.getElementById('u-email').value='';
+  document.getElementById('u-password').value='';
+  document.getElementById('u-password2').value='';
+  document.getElementById('u-role').value='engenharia';
+  document.getElementById('u-ativo').value='1';
+  document.getElementById('u-pwd-hint').style.display='none';
+  document.getElementById('overlay-usuario').classList.add('open');
+}
+
+function editUsuario(u){
+  usuarioEditId=u.id;
+  document.getElementById('u-modal-title').textContent='Editar usuário';
+  document.getElementById('u-username').value=u.username;
+  document.getElementById('u-username').readOnly=true;
+  document.getElementById('u-nome').value=u.nome||'';
+  document.getElementById('u-email').value=u.email||'';
+  document.getElementById('u-password').value='';
+  document.getElementById('u-password2').value='';
+  document.getElementById('u-role').value=u.role||'engenharia';
+  document.getElementById('u-ativo').value=String(u.ativo);
+  document.getElementById('u-pwd-hint').style.display='block';
+  document.getElementById('overlay-usuario').classList.add('open');
+}
+
+function closeUsuarioModal(){
+  document.getElementById('overlay-usuario').classList.remove('open');
+  usuarioEditId=null;
+}
+
+async function salvarUsuario(){
+  const username=document.getElementById('u-username').value.trim();
+  const nome=document.getElementById('u-nome').value.trim();
+  const pwd=document.getElementById('u-password').value;
+  const pwd2=document.getElementById('u-password2').value;
+  const role=document.getElementById('u-role').value;
+  const ativo=document.getElementById('u-ativo').value==='1';
+  if(!usuarioEditId && !username){toast('Informe o username.');return;}
+  if(!usuarioEditId && !pwd){toast('Informe a senha.');return;}
+  if(pwd && pwd.length < 6){toast('Senha deve ter ao menos 6 caracteres.');return;}
+  if(pwd && pwd!==pwd2){toast('Senhas não coincidem.');return;}
+  const email=document.getElementById('u-email').value.trim();
+  const body={username,nome,email,role,ativo};
+  if(pwd)body.password=pwd;
+  let r;
+  if(usuarioEditId){
+    r=await fetch('/api/usuarios/'+usuarioEditId,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  } else {
+    r=await fetch('/api/usuarios',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  }
+  if(r.ok){
+    toast(usuarioEditId?'Usuário atualizado!':'Usuário criado!');
+    closeUsuarioModal();
+    loadUsuarios();
+  } else {
+    const e=await r.json();
+    toast('Erro: '+(e.erro||'desconhecido'));
+  }
+}
+
+async function desativarUsuario(id,username,ativo){
+  const acao=ativo?'desativar':'reativar';
+  if(!confirm(`Deseja ${acao} o usuário "${username}"?`))return;
+  // Busca dados atuais do usuário para preservar role/nome no PUT
+  const rows=await(await fetch('/api/usuarios')).json();
+  const u=rows.find(x=>x.id===id)||{};
+  const r=await fetch('/api/usuarios/'+id,{
+    method:'PUT',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({nome:u.nome||'',role:u.role||'engenharia',ativo:!ativo})
+  });
+  if(r.ok){toast(`Usuário ${ativo?'desativado':'reativado'}!`);loadUsuarios();}
+  else toast('Erro ao alterar usuário.');
+}
+
+// ── Heartbeat & Online ────────────────────────────────────────────────────
+const ROLE_LABELS_ONLINE={admin:'Admin',engenharia:'Engenharia',financeiro:'Financeiro'};
+
+async function sendHeartbeat(){
+  try{ await fetch('/api/heartbeat',{method:'POST'}); }catch{}
+}
+
+async function refreshOnline(){
+  try{
+    const r=await fetch('/api/online');
+    if(!r.ok)return;
+    const users=await r.json();
+    const count=users.length;
+    document.getElementById('online-count-label').textContent=count+' online';
+    const list=document.getElementById('online-list');
+    if(!list)return;
+    list.innerHTML=users.map(u=>{
+      const ago=u.last_seen?timeSince(u.last_seen):'';
+      return`<div class="online-user-row">
+        <span class="online-user-dot"></span>
+        <span class="online-user-nome">${u.nome||u.username}</span>
+        <span class="online-user-role">${ROLE_LABELS_ONLINE[u.role]||u.role}</span>
+        <span class="online-user-time">${ago}</span>
+      </div>`;
+    }).join('');
+  }catch{}
+}
+
+function timeSince(iso){
+  const diff=Math.floor((Date.now()-new Date(iso).getTime())/1000);
+  if(diff<10)return'agora';
+  if(diff<60)return diff+'s';
+  return Math.floor(diff/60)+'min';
+}
+
+function toggleOnlineDropdown(){
+  const dd=document.getElementById('online-dropdown');
+  dd.classList.toggle('open');
+  if(dd.classList.contains('open'))refreshOnline();
+}
+
+// Fecha dropdown ao clicar fora
+document.addEventListener('click',function(e){
+  const panel=document.getElementById('online-panel');
+  if(panel&&!panel.contains(e.target)){
+    document.getElementById('online-dropdown').classList.remove('open');
+  }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// REALOCAÇÃO DE PROVISÕES
+// ══════════════════════════════════════════════════════════════════════════════
+
+let provisoesPendentes = [];
+let historicoAberto = false;
+
+function mesLabel(ym) {
+  if(!ym) return '—';
+  const [y, m] = ym.split('-');
+  const ms = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  return `${ms[parseInt(m)-1]}/${y}`;
+}
+
+function proximoMes(ym) {
+  if(!ym) return '';
+  const [y, m] = ym.split('-').map(Number);
+  if(m === 12) return `${y+1}-01`;
+  return `${y}-${String(m+1).padStart(2,'0')}`;
+}
+
+async function verificarProvisoespendentes() {
+  try {
+    const r = await fetch('/api/provisoes-pendentes');
+    if(!r.ok) return;
+    const items = await r.json();
+    provisoesPendentes = items;
+    const alerta = document.getElementById('alerta-realoc');
+    if(items.length === 0) { alerta.classList.remove('show'); return; }
+    const totalVal = items.reduce((a,i) => a + Number(i.provisao||0), 0);
+    const meses = [...new Set(items.map(i=>i.comp))].sort().map(mesLabel);
+    const isAdmin = window.currentRole === 'admin' || window.currentRole === 'financeiro';
+    if(isAdmin) {
+      const gestores = [...new Set(items.map(i=>i.gestor||'—'))].filter(Boolean);
+      document.getElementById('alerta-realoc-title').textContent =
+        `${items.length} provisão${items.length>1?'ões':''} não cumprida${items.length>1?'s':''} — R$ ${fmt(totalVal)}`;
+      document.getElementById('alerta-realoc-sub').textContent =
+        `${gestores.length} gestor${gestores.length>1?'es':''}: ${gestores.join(', ')} · Meses: ${meses.join(', ')} — clique para revisar e realocar`;
+    } else {
+      document.getElementById('alerta-realoc-title').textContent =
+        `Você tem ${items.length} provisão${items.length>1?'ões':''} não cumprida${items.length>1?'s':''} — R$ ${fmt(totalVal)}`;
+      document.getElementById('alerta-realoc-sub').textContent =
+        `Meses: ${meses.join(', ')} — clique para revisar e realocar para o próximo mês`;
+    }
+    alerta.classList.add('show');
+  } catch(e) {}
+}
+
+function abrirRealocacao() {
+  const overlay = document.getElementById('realoc-overlay');
+  overlay.classList.add('open');
+  renderRealocacaoTabela();
+}
+
+function fecharRealocacao() {
+  document.getElementById('realoc-overlay').classList.remove('open');
+  historicoAberto = false;
+  document.getElementById('realoc-hist-section').style.display = 'none';
+}
+
+function fecharRealocacaoOverlay(e) {
+  if(e.target === document.getElementById('realoc-overlay')) fecharRealocacao();
+}
+
+function renderRealocacaoTabela() {
+  const items = provisoesPendentes;
+  const tbody = document.getElementById('realoc-tbody');
+  const empty = document.getElementById('realoc-empty');
+  const meta = document.getElementById('realoc-header-meta');
+  const isAdmin = window.currentRole === 'admin' || window.currentRole === 'financeiro';
+
+  // Mostrar/ocultar coluna Gestor
+  const thGestor = document.getElementById('realoc-th-gestor');
+  if(thGestor) thGestor.style.display = isAdmin ? '' : 'none';
+
+  // Popular seletor de mês destino
+  const selDest = document.getElementById('realoc-comp-dest');
+  const hoje = new Date();
+  const mesAtual = `${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}`;
+  const mesProx = proximoMes(mesAtual);
+  const mesAnt = (()=>{const d=new Date(hoje.getFullYear(),hoje.getMonth()-1,1);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;})();
+  const opcoesMeses = [mesAnt];
+  let m = mesAtual;
+  for(let i=0; i<6; i++) {
+    opcoesMeses.push(m);
+    m = proximoMes(m);
+  }
+  selDest.innerHTML = opcoesMeses.map(mo =>
+    `<option value="${mo}">${mesLabel(mo)}${mo===mesAnt?' (mês anterior)':mo===mesAtual?' (mês atual)':mo===mesProx?' (próximo)':''}</option>`
+  ).join('');
+  selDest.value = mesAtual;
+
+  const totalVal = items.reduce((a,i) => a + Number(i.provisao||0), 0);
+
+  if(isAdmin) {
+    const gestores = [...new Set(items.map(i=>i.gestor||'—'))].sort();
+    meta.textContent = `${items.length} provisões · ${gestores.length} gestor${gestores.length>1?'es':''} · R$ ${fmt(totalVal)}`;
+  } else {
+    meta.textContent = `Suas ${items.length} provisão${items.length>1?'ões':''} · R$ ${fmt(totalVal)} · de ${[...new Set(items.map(i=>i.comp))].map(mesLabel).join(', ')}`;
+  }
+
+  if(!items.length) {
+    tbody.innerHTML = '';
+    empty.style.display = 'block';
+    atualizarRealocBtns();
+    return;
+  }
+  empty.style.display = 'none';
+
+  function buildItemRow(item, idx) {
+    const sp = item.status_prov_calc || 'aberta';
+    const pct = item.pct_medido || 0;
+    const vlMedido = Number(item.vl_medido || 0);
+    const vlRestante = Math.max(0, Number(item.provisao||0) - vlMedido);
+    const vlSugerido = sp === 'parcial' ? vlRestante : Number(item.provisao||0);
+    const spBadge = sp === 'parcial'
+      ? `<span class="badge b-parcial">◑ Parcial ${pct}%</span>`
+      : `<span class="badge b-aberta">Aberta</span>`;
+    const tdGestor = isAdmin
+      ? `<td style="font-size:11px;white-space:nowrap">${item.gestor||'—'}</td>`
+      : '';
+    return `
+    <tr id="realoc-row-${idx}" data-idx="${idx}">
+      <td><input type="checkbox" class="realoc-check realoc-item-check" data-idx="${idx}" onchange="realocCheckChange()"></td>
+      <td>
+        <div style="font-weight:700;font-size:12px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${item.obra||''}">${item.obra||'—'}</div>
+        <div style="font-size:10px;color:#999">${item.contrato_nome||''}</div>
+      </td>
+      ${tdGestor}
+      <td style="font-size:11px;white-space:nowrap">${item.contrato_num||'—'}</td>
+      <td style="white-space:nowrap">
+        <span class="badge b-aberta" style="font-size:10px">${mesLabel(item.comp)}</span><br>
+        <span style="margin-top:2px;display:inline-block">${spBadge}</span>
+      </td>
+      <td class="currency" style="white-space:nowrap">
+        <div style="font-weight:700;font-size:12px">R$ ${fmt(item.provisao)}</div>
+        ${sp==='parcial'?`<div style="font-size:10px;color:#166534">Medido: R$ ${fmt(vlMedido)}</div><div style="font-size:10px;color:#9A3412">Saldo: R$ ${fmt(vlRestante)}</div>`:''}
+      </td>
+      <td><input type="number" class="realoc-valor-input" id="realoc-val-${idx}" value="${vlSugerido.toFixed(2)}" step="0.01" min="0" placeholder="0,00" title="${sp==='parcial'?'Sugerido: saldo restante':'Valor para realocar'}"></td>
+      <td><input type="text" class="realoc-obs-input" id="realoc-obs-${idx}" placeholder="Opcional..."></td>
+      <td>
+        <span id="realoc-acao-${idx}" class="badge" style="background:#f0f2f5;color:#666;font-size:10px">Aguardando</span>
+      </td>
+    </tr>`;
+  }
+
+  if(isAdmin) {
+    // Agrupar por gestor com subtotais
+    const gestores = [...new Set(items.map(i=>i.gestor||'—'))].sort();
+    const colSpan = 9; // checkbox + obra + gestor + contrato + mês + provisão + valor + obs + ação
+    let html = '';
+    gestores.forEach(g => {
+      const gItems = items.map((item,idx)=>({item,idx})).filter(({item})=>(item.gestor||'—')===g);
+      const gTotal = gItems.reduce((a,{item})=>a+Number(item.provisao||0),0);
+      html += `<tr style="background:#EFF6FF;border-top:2px solid #BFDBFE">
+        <td colspan="${colSpan}" style="padding:8px 10px;font-size:12px;font-weight:700;color:#1E3A5F">
+          👤 ${g} <span style="font-weight:400;color:#4B7AB5;margin-left:8px">${gItems.length} provisão${gItems.length>1?'ões':''} · R$ ${fmt(gTotal)}</span>
+        </td>
+      </tr>`;
+      gItems.forEach(({item,idx}) => {
+        html += buildItemRow(item, idx);
+      });
+    });
+    tbody.innerHTML = html;
+  } else {
+    // Visão simples para gestor (sem agrupamento — já vem filtrado pelo backend)
+    tbody.innerHTML = items.map((item, idx) => buildItemRow(item, idx)).join('');
+  }
+
+  atualizarRealocBtns();
+  atualizarRealocFooter();
+}
+
+function realocCheckChange() {
+  atualizarRealocBtns();
+  atualizarRealocFooter();
+  // Atualiza highlight das linhas
+  document.querySelectorAll('.realoc-item-check').forEach(cb => {
+    const row = document.getElementById(`realoc-row-${cb.dataset.idx}`);
+    if(row) row.classList.toggle('selected', cb.checked);
+  });
+}
+
+function selecionarTodas(checked) {
+  document.querySelectorAll('.realoc-item-check').forEach(cb => {
+    cb.checked = checked;
+    const row = document.getElementById(`realoc-row-${cb.dataset.idx}`);
+    if(row) row.classList.toggle('selected', checked);
+  });
+  document.getElementById('realoc-check-all').checked = checked;
+  atualizarRealocBtns();
+  atualizarRealocFooter();
+}
+
+function getCheckedIdxs() {
+  return [...document.querySelectorAll('.realoc-item-check:checked')].map(cb => parseInt(cb.dataset.idx));
+}
+
+function atualizarRealocBtns() {
+  const idxs = getCheckedIdxs();
+  const btnR = document.getElementById('btn-confirmar-realoc');
+  const btnC = document.getElementById('btn-cancelar-sel');
+  if(btnR) btnR.disabled = idxs.length === 0;
+  if(btnC) btnC.disabled = idxs.length === 0;
+  const countEl = document.getElementById('realoc-count-sel');
+  countEl.textContent = idxs.length > 0 ? `${idxs.length} selecionada${idxs.length>1?'s':''}` : '';
+}
+
+function atualizarRealocFooter() {
+  const idxs = getCheckedIdxs();
+  const totalSel = idxs.reduce((a, i) => {
+    const inp = document.getElementById(`realoc-val-${i}`);
+    return a + (inp ? parseFloat(inp.value)||0 : 0);
+  }, 0);
+  const totalGeral = provisoesPendentes.reduce((a,i) => a + Number(i.provisao||0), 0);
+  document.getElementById('realoc-footer-stats').textContent =
+    idxs.length > 0
+      ? `${idxs.length} selecionada${idxs.length>1?'s':''} · R$ ${fmt(totalSel)} de R$ ${fmt(totalGeral)} total`
+      : `${provisoesPendentes.length} provisões · R$ ${fmt(totalGeral)} total`;
+}
+
+async function confirmarRealocacao() {
+  const idxs = getCheckedIdxs();
+  if(!idxs.length) return;
+  const compDest = document.getElementById('realoc-comp-dest').value;
+  if(!compDest) { toast('Selecione o mês de destino.'); return; }
+
+  const items = idxs.map(idx => {
+    const item = provisoesPendentes[idx];
+    const valorInp = document.getElementById(`realoc-val-${idx}`);
+    const obsInp = document.getElementById(`realoc-obs-${idx}`);
+    return {
+      medicao_id: item.id,
+      valor_novo: parseFloat(valorInp?.value || item.provisao) || Number(item.provisao),
+      comp_destino: compDest,
+      obs: obsInp?.value?.trim() || ''
+    };
+  });
+
+  const nomes = idxs.map(i => provisoesPendentes[i]?.obra?.substring(0,30)).join(', ');
+  if(!confirm(`Realocar ${idxs.length} provisão(ões) para ${mesLabel(compDest)}?\n\n${nomes}`)) return;
+
+  const btnR = document.getElementById('btn-confirmar-realoc');
+  btnR.disabled = true;
+  btnR.textContent = '⏳ Realocando...';
+
+  try {
+    const r = await fetch('/api/realocar', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({items})
+    });
+    const res = await r.json();
+    if(!r.ok || res.erro) {
+      toast('Erro: ' + (res.erro || 'Falha na realocação'));
+      btnR.disabled = false;
+      btnR.textContent = '✅ Realocar selecionadas';
+      return;
+    }
+    toast(`✅ ${res.realizados} provisão(ões) realocada${res.realizados>1?'s':''} para ${mesLabel(compDest)}!`);
+    // Marca linhas como realocadas na UI
+    idxs.forEach(idx => {
+      const row = document.getElementById(`realoc-row-${idx}`);
+      if(row) row.classList.add('cancelar-linha');
+      const acao = document.getElementById(`realoc-acao-${idx}`);
+      if(acao) { acao.textContent = `✅ ${mesLabel(compDest)}`; acao.style.background='#EAF3DE'; acao.style.color='#3B6D11'; }
+    });
+    // Recarrega dados e atualiza banner
+    await load();
+    await loadFolhas();
+    await verificarProvisoespendentes();
+  } catch(e) {
+    toast('Erro: ' + e.message);
+  } finally {
+    btnR.disabled = false;
+    btnR.textContent = '✅ Realocar selecionadas';
+  }
+}
+
+async function cancelarSelecionadas() {
+  const idxs = getCheckedIdxs();
+  if(!idxs.length) return;
+  const nomes = idxs.map(i => provisoesPendentes[i]?.obra?.substring(0,30)).join(', ');
+  if(!confirm(`Cancelar ${idxs.length} provisão(ões)? Elas não serão realocadas.\n\n${nomes}`)) return;
+
+  const ids = idxs.map(idx => provisoesPendentes[idx]?.id).filter(Boolean);
+  const r = await fetch('/api/cancelar-provisao', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ids})
+  });
+  const res = await r.json();
+  if(!r.ok || res.erro) { toast('Erro: ' + (res.erro||'falha')); return; }
+  toast(`⛔ ${res.canceladas} provisão(ões) cancelada(s).`);
+  idxs.forEach(idx => {
+    const row = document.getElementById(`realoc-row-${idx}`);
+    if(row) row.classList.add('cancelar-linha');
+    const acao = document.getElementById(`realoc-acao-${idx}`);
+    if(acao) { acao.textContent = '⛔ Cancelada'; acao.style.background='#F3F4F6'; acao.style.color='#6B7280'; }
+  });
+  await load();
+  await verificarProvisoespendentes();
+}
+
+async function toggleHistorico() {
+  const sec = document.getElementById('realoc-hist-section');
+  historicoAberto = !historicoAberto;
+  sec.style.display = historicoAberto ? 'block' : 'none';
+  if(!historicoAberto) return;
+  const hist = document.getElementById('realoc-hist');
+  hist.innerHTML = '<p style="color:#999;font-size:13px">Carregando...</p>';
+  try {
+    const r = await fetch('/api/realocacoes');
+    const rows = await r.json();
+    if(!rows.length) { hist.innerHTML = '<div class="empty" style="padding:.5rem 0">Nenhuma realocação registrada.</div>'; return; }
+    hist.innerHTML = `<div style="overflow-x:auto"><table>
+      <thead><tr>
+        <th>Obra</th><th>Contrato</th><th>De</th><th>Para</th>
+        <th>Valor orig.</th><th>Valor novo</th><th>Aprovado por</th><th>Quando</th>
+      </tr></thead>
+      <tbody>${rows.map(r => `<tr>
+        <td style="font-weight:600;font-size:11px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.obra||'—'}</td>
+        <td style="font-size:11px">${r.contrato_num||'—'}</td>
+        <td><span class="badge b-aberta">${mesLabel(r.comp_origem)}</span></td>
+        <td><span class="hist-badge">${mesLabel(r.comp_destino)}</span></td>
+        <td class="currency" style="font-size:11px">R$ ${fmt(r.valor_origem)}</td>
+        <td class="currency" style="font-size:11px;font-weight:700">R$ ${fmt(r.valor_destino)}</td>
+        <td style="font-size:11px">${r.aprovado_por||'—'}</td>
+        <td style="font-size:11px;white-space:nowrap">${r.aprovado_em?fmtDate(r.aprovado_em.slice(0,10)):'—'}</td>
+      </tr>`).join('')}</tbody>
+    </table></div>`;
+  } catch(e) { hist.innerHTML = '<div class="empty">Erro ao carregar histórico.</div>'; }
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────
+window.currentUser='{{ user }}';
+window.currentRole='{{ role }}';
+window.currentNome='{{ nome }}';
+updateBulkBtn();
+load().then(()=>loadFolhas());
+loadMinhasSolicitacoes();
+if(window.currentUser==='admin'){loadDeleteRequests();loadEditRequests();}
+
+// Verificar provisões pendentes ao carregar (e periodicamente)
+verificarProvisoespendentes();
+setInterval(verificarProvisoespendentes, 5 * 60 * 1000); // verifica a cada 5min
+
+// Heartbeat: envia sinal imediatamente e a cada 30s
+sendHeartbeat();
+setInterval(sendHeartbeat, 30000);
+// Atualiza contagem de online a cada 15s
+refreshOnline();
+setInterval(refreshOnline, 15000);
+</script>
+<!-- Modal Escanear NFs -->
+<div id="modal-nf-scan" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:1000;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:12px;padding:1.5rem;width:520px;max-width:95vw;box-shadow:0 8px 32px rgba(0,0,0,.18)">
+    <h2 style="font-size:16px;font-weight:700;margin-bottom:1rem">🔍 Escanear pastas de NFs</h2>
+    <p style="font-size:12px;color:#666;margin-bottom:1rem">Aceita caminhos <code>smb://</code> ou <code>/Volumes/...</code>. O servidor converte automaticamente. Certifique-se de que o compartilhamento está conectado no Finder antes de escanear.</p>
+    <div style="margin-bottom:.75rem">
+      <label style="font-size:12px;font-weight:600;color:#444;display:block;margin-bottom:4px">Pasta 1 — FINANCEIRO</label>
+      <input id="scan-pasta1" type="text" value="/Volumes/FINANCEIRO/CONTAS A RECEBER/NOTAS FISCAIS EMITIDAS/2026/05 MAIO"
+        style="width:100%;padding:8px 10px;font-size:11px;border:1px solid #ddd;border-radius:7px;outline:none;font-family:monospace">
+    </div>
+    <div style="margin-bottom:1.25rem">
+      <label style="font-size:12px;font-weight:600;color:#444;display:block;margin-bottom:4px">Pasta 2 — ENERGY CONSTRUÇÕES</label>
+      <input id="scan-pasta2" type="text" value="smb://192.168.1.10/ENERGY CONSTRUÇÕES/05- DEPARTAMENTO FINANCEIRO/01 - CONTAS A RECEBER/01 - NOTAS FISCAIS EMITIDAS/2026/05 - MAIO"
+        style="width:100%;padding:8px 10px;font-size:11px;border:1px solid #ddd;border-radius:7px;outline:none;font-family:monospace">
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:8px">
+      <button onclick="fecharModalScan()" style="padding:8px 16px;border:1px solid #ddd;border-radius:7px;background:#fff;cursor:pointer;font-size:13px">Cancelar</button>
+      <button onclick="confirmarScan()" style="padding:8px 16px;border:none;border-radius:7px;background:#185FA5;color:#fff;cursor:pointer;font-size:13px;font-weight:600">🔍 Escanear</button>
+    </div>
+  </div>
+</div>
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- OVERLAY: REALOCAÇÃO DE PROVISÕES                                         -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<div class="realoc-overlay" id="realoc-overlay" onclick="fecharRealocacaoOverlay(event)">
+  <div class="realoc-modal">
+    <div class="realoc-header">
+      <div style="font-size:22px">📋</div>
+      <div style="flex:1">
+        <h2>Revisão de Provisões Não Cumpridas</h2>
+        <div class="realoc-header-meta" id="realoc-header-meta">Carregando...</div>
+      </div>
+      <button onclick="fecharRealocacao()" class="btn" style="flex-shrink:0">✕ Fechar</button>
+    </div>
+
+    <div class="realoc-body">
+      <!-- Controles globais -->
+      <div class="realoc-controls">
+        <div style="font-size:12px;font-weight:700;color:#444">Realocar selecionadas para:</div>
+        <select id="realoc-comp-dest" style="font-size:13px;font-weight:700;color:#185FA5;min-width:160px">
+        </select>
+        <div style="flex:1"></div>
+        <button class="btn sm" onclick="selecionarTodas(true)">☑ Selecionar tudo</button>
+        <button class="btn sm" onclick="selecionarTodas(false)">☐ Desmarcar tudo</button>
+        <span id="realoc-count-sel" style="font-size:12px;color:#185FA5;font-weight:700;min-width:80px;text-align:right"></span>
+      </div>
+
+      <!-- Tabela de provisões pendentes -->
+      <div style="overflow-x:auto">
+        <table class="realoc-table">
+          <thead>
+            <tr>
+              <th style="width:36px"><input type="checkbox" class="realoc-check" id="realoc-check-all" onchange="selecionarTodas(this.checked)"></th>
+              <th>Obra / Centro de Custo</th>
+              <th id="realoc-th-gestor">Gestor</th>
+              <th>Contrato</th>
+              <th>Mês Origem</th>
+              <th>Provisão Original</th>
+              <th>Novo Valor (R$)</th>
+              <th>Observação</th>
+              <th>Ação</th>
+            </tr>
+          </thead>
+          <tbody id="realoc-tbody"></tbody>
+        </table>
+        <div id="realoc-empty" class="empty" style="display:none">Nenhuma provisão pendente encontrada.</div>
+      </div>
+
+      <!-- Histórico de realocações -->
+      <div id="realoc-hist-section" style="margin-top:20px;border-top:1px solid #e5e7eb;padding-top:16px;display:none">
+        <div style="font-size:13px;font-weight:700;color:#444;margin-bottom:10px">🕓 Histórico de realocações</div>
+        <div id="realoc-hist"></div>
+      </div>
+    </div>
+
+    <div class="realoc-footer">
+      <div class="realoc-footer-stats" id="realoc-footer-stats"></div>
+      <div class="realoc-footer-actions">
+        <button class="btn" onclick="toggleHistorico()">🕓 Histórico</button>
+        {% if role in ['admin','financeiro','engenharia'] %}
+        <button class="btn danger" onclick="cancelarSelecionadas()" id="btn-cancelar-sel" disabled>⛔ Cancelar selecionadas</button>
+        <button class="btn primary" onclick="confirmarRealocacao()" id="btn-confirmar-realoc" disabled>✅ Realocar selecionadas</button>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Energy — Folhas de Medição</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,sans-serif;background:#f0f2f5;color:#1a1a2e;font-size:14px}
+.topbar{background:#fff;border-bottom:1px solid #e5e7eb;padding:0 1.5rem;display:flex;align-items:center;justify-content:space-between;height:56px;position:sticky;top:0;z-index:50}
+.topbar h1{font-size:17px;font-weight:700;color:#1a1a2e}
+.topbar-right{display:flex;align-items:center;gap:12px}
+.user-badge{font-size:12px;color:#666;background:#f0f2f5;padding:5px 10px;border-radius:20px}
+.btn-logout{font-size:12px;color:#A32D2D;background:none;border:1px solid #A32D2D;padding:5px 12px;border-radius:6px;cursor:pointer}
+.main{padding:1.25rem 1.5rem;max-width:1200px;margin:0 auto}
+.cards-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:1.25rem}
+.metric{background:#fff;border-radius:10px;padding:.875rem 1rem;border:1px solid #e5e7eb}
+.metric-label{font-size:11px;color:#888;margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px}
+.metric-value{font-size:20px;font-weight:700;color:#1a1a2e}
+.metric-value.warn{color:#854F0B}
+.metric-value.danger{color:#A32D2D}
+.metric-value.success{color:#3B6D11}
+.metric-sub{font-size:11px;color:#999;margin-top:3px}
+.section{background:#fff;border-radius:10px;border:1px solid #e5e7eb;padding:1.125rem;margin-bottom:1rem}
+.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:.875rem;flex-wrap:wrap;gap:8px}
+.section-title{font-size:15px;font-weight:600}
+.controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+select,input[type=text]{padding:7px 10px;font-size:13px;border:1px solid #ddd;border-radius:7px;background:#fff;color:#1a1a2e;outline:none}
+select:focus,input:focus{border-color:#185FA5}
+.btn{background:#fff;border:1px solid #ddd;border-radius:7px;padding:7px 13px;font-size:13px;color:#1a1a2e;cursor:pointer;display:inline-flex;align-items:center;gap:5px;text-decoration:none}
+.btn:hover{background:#f5f5f5}
+.btn.primary{background:#185FA5;border-color:#185FA5;color:#fff}
+.btn.sm{padding:4px 9px;font-size:12px}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{text-align:left;padding:8px;color:#888;font-weight:600;border-bottom:1px solid #e5e7eb;white-space:nowrap;font-size:11px;text-transform:uppercase;letter-spacing:.4px}
+td{padding:9px 8px;border-bottom:1px solid #f0f0f0;vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#fafafa}
+tr.nova{background:#fff8e1}
+tr.vinculada{background:#f0fdf4}
+.badge{display:inline-flex;align-items:center;font-size:10px;padding:2px 8px;border-radius:20px;font-weight:600;white-space:nowrap}
+.b-ok{background:#EAF3DE;color:#3B6D11}
+.b-new{background:#FAEEDA;color:#854F0B}
+.currency{font-variant-numeric:tabular-nums}
+.empty{text-align:center;padding:2.5rem;color:#999;font-size:13px}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <h1>⚡ Energy — Folhas de Medição</h1>
+  <div class="topbar-right">
+    <span class="user-badge">👤 {{ user }}</span>
+    <a href="/" class="btn">← Voltar</a>
+    <a href="/logout"><button class="btn-logout">Sair</button></a>
+  </div>
+</div>
+
+<div class="main">
+  <div class="cards-grid" id="metrics"></div>
+
+  <div class="section">
+    <div class="section-header">
+      <span class="section-title">📥 Folhas processadas automaticamente</span>
+      <div class="controls">
+        <select id="fol-contrato" onchange="render()"><option value="">Todos contratos</option></select>
+        <select id="fol-periodo" onchange="render()"><option value="">Todos períodos</option></select>
+        <select id="fol-vinculo" onchange="render()">
+          <option value="">Todas</option>
+          <option value="nova">Não vinculadas</option>
+          <option value="vinculada">Vinculadas</option>
+        </select>
+        <input type="text" id="search" placeholder="Buscar folha, município..." oninput="render()" style="width:200px">
+        <button class="btn" onclick="load()">🔄 Atualizar</button>
+        <button class="btn primary" onclick="escanearNFs()" title="Escanear pasta de NFs e atualizar automaticamente">🔍 Escanear NFs</button>
+      </div>
+    </div>
+    <div style="overflow-x:auto">
+      <table>
+        <thead><tr>
+          <th>Nº Folha</th><th>Contrato</th><th>Período</th>
+          <th>Município</th><th>Fornecedor</th>
+          <th>Valor Total (R$)</th><th>Recebido em</th>
+          <th style="max-width:200px">Arquivo</th><th>NF</th><th>Vínculo</th>
+        </tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+      <div id="empty" class="empty" style="display:none">Nenhuma folha encontrada.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+let folhas=[], medicoes=[], saldos={};
+
+function fmt(v){return Number(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function compLabel(c){if(!c)return'—';const[y,m]=c.split('-');const ms=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];return`${ms[parseInt(m)-1]}/${y}`;}
+
+async function load(){
+  const [rf,rm,rc]=await Promise.all([fetch('/api/folhas'),fetch('/api/medicoes'),fetch('/api/contratos')]);
+  folhas=await rf.json();
+  medicoes=await rm.json();
+  const ctrs=await rc.json();
+  saldos={};ctrs.forEach(c=>saldos[c.num]=c);
+  render();
+}
+
+function render(){
+  const ctrFil=document.getElementById('fol-contrato').value;
+  const perFil=document.getElementById('fol-periodo').value;
+  const vinFil=document.getElementById('fol-vinculo').value;
+  const q=(document.getElementById('search').value||'').toLowerCase();
+
+  const allCtrs=[...new Set(folhas.map(f=>f.n_contrato).filter(Boolean))].sort();
+  const allPers=[...new Set(folhas.map(f=>f.periodo).filter(Boolean))].sort();
+  const selC=document.getElementById('fol-contrato');
+  const selP=document.getElementById('fol-periodo');
+  const curC=selC.value,curP=selP.value;
+  selC.innerHTML='<option value="">Todos contratos</option>'+allCtrs.map(c=>`<option value="${c}">${c}${saldos[c]?' — '+saldos[c].nome:''}</option>`).join('');
+  selP.innerHTML='<option value="">Todos períodos</option>'+allPers.map(p=>`<option value="${p}">${compLabel(p)}</option>`).join('');
+  selC.value=curC;selP.value=curP;
+
+  // Inclui pedido direto E vínculos via rateio (medicao_folhas)
+  const vinculadas=new Set([
+    ...medicoes.map(m=>m.pedido).filter(Boolean),
+    ...medicoes.flatMap(m=>(m.folhas_vinculadas||[]).map(lk=>lk.n_folha))
+  ]);
+  // Mapa folha → NF (vindo de medicao_folhas via folhas_vinculadas)
+  const folhaNF={};
+  medicoes.forEach(m=>(m.folhas_vinculadas||[]).forEach(lk=>{if(lk.nf)folhaNF[lk.n_folha]=lk.nf;}));
+  let rows=folhas.filter(f=>{
+    const vinc=vinculadas.has(f.n_folha);
+    if(ctrFil&&f.n_contrato!==ctrFil)return false;
+    if(perFil&&f.periodo!==perFil)return false;
+    if(vinFil==='nova'&&vinc)return false;
+    if(vinFil==='vinculada'&&!vinc)return false;
+    if(q&&!(f.n_folha+f.n_contrato+f.municipio+f.fornecedor).toLowerCase().includes(q))return false;
+    return true;
+  }).sort((a,b)=>Number(a.n_folha)-Number(b.n_folha));
+
+  const totalRecv=rows.reduce((a,f)=>a+f.valor_total,0);
+  const novas=rows.filter(f=>!vinculadas.has(f.n_folha)).length;
+  const vinc=rows.filter(f=>vinculadas.has(f.n_folha)).length;
+  document.getElementById('metrics').innerHTML=`
+    <div class="metric"><div class="metric-label">Valor total</div><div class="metric-value warn currency" style="font-size:16px">R$ ${fmt(totalRecv)}</div></div>
+    <div class="metric"><div class="metric-label">Folhas</div><div class="metric-value" style="font-size:16px">${rows.length}</div></div>
+    <div class="metric"><div class="metric-label">Não vinculadas</div><div class="metric-value danger" style="font-size:16px">${novas}</div><div class="metric-sub">sem vínculo no cronograma</div></div>
+    <div class="metric"><div class="metric-label">Vinculadas</div><div class="metric-value success" style="font-size:16px">${vinc}</div></div>
+  `;
+
+  const tbody=document.getElementById('tbody');
+  const empty=document.getElementById('empty');
+  if(!rows.length){tbody.innerHTML='';empty.style.display='block';return;}
+  empty.style.display='none';
+  tbody.innerHTML=rows.map(f=>{
+    const isVinc=vinculadas.has(f.n_folha);
+    const arquivo=(f.arquivo||'').split('/').pop()||'—';
+    const arquivoShort=arquivo.length>30?arquivo.substring(0,28)+'…':arquivo;
+    return`<tr class="${isVinc?'vinculada':'nova'}">
+      <td style="font-weight:700">${f.n_folha}</td>
+      <td style="font-size:11px;white-space:nowrap">${f.n_contrato}<br><span style="color:#999">${saldos[f.n_contrato]?.nome||''}</span></td>
+      <td style="white-space:nowrap">${compLabel(f.periodo)}</td>
+      <td>${f.municipio||'—'}</td>
+      <td style="max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.fornecedor||'—'}</td>
+      <td class="currency" style="font-weight:700;white-space:nowrap">R$ ${fmt(f.valor_total)}</td>
+      <td style="white-space:nowrap">${f.data_recebimento||'—'}</td>
+      <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${arquivo}">${arquivoShort}</td>
+      <td style="font-size:11px;font-weight:700;white-space:nowrap">${folhaNF[f.n_folha]?`<span style="color:#3B6D11">NF-${folhaNF[f.n_folha]}</span>`:'<span style="color:#ccc">—</span>'}</td>
+      <td>${isVinc?'<span class="badge b-ok">Vinculada</span>':'<span class="badge b-new">Não vinculada</span>'}</td>
+    </tr>`;
+  }).join('');
+}
+
+const NF_PASTA_DEFAULT="/Volumes/ENERGY CONSTRUÇÕES/05- DEPARTAMENTO FINANCEIRO/01 - CONTAS A RECEBER/01 - NOTAS FISCAIS EMITIDAS/2026/05 - MAIO";
+
+async function escanearNFs(){
+  const pasta=prompt("Caminho da pasta de NFs:",NF_PASTA_DEFAULT);
+  if(!pasta)return;
+  const btn=event.target;
+  btn.disabled=true;btn.textContent='⏳ Escaneando...';
+  try{
+    const r=await fetch('/api/escanear-nfs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pasta})});
+    const d=await r.json();
+    if(d.erro){alert('Erro: '+d.erro);return;}
+    alert(`✅ Concluído!\n${d.atualizadas} folhas com NF encontrada (de ${d.mapa_encontrado} arquivos na pasta).`);
+    load();
+  }catch(e){alert('Erro: '+e);}finally{btn.disabled=false;btn.textContent='🔍 Escanear NFs';}
+}
+
+load();
+</script>
+</body>
+</html>
