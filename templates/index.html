@@ -330,6 +330,13 @@ tr:hover td{background:#fafafa}
   <!-- ══════════════════════════════════════════════════════════════════════ -->
   <div class="tab-pane active" id="tab-dashboard">
 
+    <!-- ── Filtro de empresa ─────────────────────────────────────────────── -->
+    <div class="empresa-bar" style="margin-bottom:10px">
+      <button class="emp-btn active-all" id="dash-emp-all"     onclick="setDashEmpresa('')">Todas</button>
+      <button class="emp-btn"            id="dash-emp-cons"    onclick="setDashEmpresa('ENERGY CONSTRUÇÕES')">🏗 Energy Construções</button>
+      <button class="emp-btn"            id="dash-emp-serv"    onclick="setDashEmpresa('ENERGY SERVIÇOS')">⚙️ Energy Serviços</button>
+    </div>
+
     <!-- ── Comparar com (só no dashboard) ─────────────────────────────────── -->
     <div id="dash-comp-wrap" style="display:none;background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:10px 16px;margin-bottom:14px">
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
@@ -967,6 +974,7 @@ async function confirmarScan(){
 
 let chartDonut=null, chartContratos=null, chartMensal=null;
 let dashCompSel=null, dashCompComp='';   // null = Todos, string = mês selecionado
+let dashEmpresaSel='';                   // '' = Todas, ou nome da empresa
 
 // ── Renderiza só os pills globais (independente da aba ativa) ─────────────
 function renderMesPills(){
@@ -1042,11 +1050,23 @@ function mesAnterior(comp){
   return`${y}-${String(m-1).padStart(2,'0')}`;
 }
 
+function setDashEmpresa(val){
+  dashEmpresaSel=val;
+  document.querySelectorAll('#dash-emp-all,#dash-emp-cons,#dash-emp-serv').forEach(b=>b.className='emp-btn');
+  if(val===''){document.getElementById('dash-emp-all').classList.add('active-all');}
+  else if(val==='ENERGY CONSTRUÇÕES'){document.getElementById('dash-emp-cons').classList.add('active-cons');}
+  else{document.getElementById('dash-emp-serv').classList.add('active-serv');}
+  renderDashboard();
+}
+
 function renderDashboard(){
   if(!data.length)return;
 
+  // ── Filtro de empresa
+  const dataEmp=dashEmpresaSel?data.filter(i=>i.empresa===dashEmpresaSel):data;
+
   // ── Meses disponíveis
-  const allComps=[...new Set(data.map(i=>i.comp).filter(Boolean))].sort();
+  const allComps=[...new Set(dataEmp.map(i=>i.comp).filter(Boolean))].sort();
 
   // Default: seleciona mês mais recente se nunca foi inicializado (null = uninitialized first load)
   if(dashCompSel===null && typeof dashCompInitialized==='undefined'){
@@ -1072,12 +1092,12 @@ function renderDashboard(){
   if(btnLimpar) btnLimpar.style.display=compComp?'inline-flex':'none';
 
   // ── Dados computados
-  const cur=calcMes(data,folhas,compSel);
-  const cmp=compComp?calcMes(data,folhas,compComp):null;
-  const dataFil=compSel?data.filter(i=>i.comp===compSel):data;
+  const cur=calcMes(dataEmp,folhas,compSel);
+  const cmp=compComp?calcMes(dataEmp,folhas,compComp):null;
+  const dataFil=compSel?dataEmp.filter(i=>i.comp===compSel):dataEmp;
   const naoVincFolhas=compSel
-    ?folhas.filter(f=>f.periodo===compSel&&!data.some(d=>(d.folhas_vinculadas||[]).some(l=>l.n_folha===f.n_folha)))
-    :folhas.filter(f=>!data.some(d=>(d.folhas_vinculadas||[]).some(l=>l.n_folha===f.n_folha)));
+    ?folhas.filter(f=>f.periodo===compSel&&!dataEmp.some(d=>(d.folhas_vinculadas||[]).some(l=>l.n_folha===f.n_folha)))
+    :folhas.filter(f=>!dataEmp.some(d=>(d.folhas_vinculadas||[]).some(l=>l.n_folha===f.n_folha)));
   const vlNaoVinc=naoVincFolhas.reduce((a,f)=>a+Number(f.valor_total||0),0);
   const totalFaturado=cur.fat;
   const totalMedido=cur.med;
@@ -1085,7 +1105,7 @@ function renderDashboard(){
   const totalFolhas=cur.folhas.reduce((a,f)=>a+Number(f.valor_total||0),0);
 
   // ── Números gerais (filtrados pelo mês selecionado)
-  const nCtrs=Object.keys(saldos).length||[...new Set(data.map(i=>i.contrato_num).filter(Boolean))].length;
+  const nCtrs=Object.keys(saldos).length||[...new Set(dataEmp.map(i=>i.contrato_num).filter(Boolean))].length;
   const nObras=[...new Set(dataFil.map(i=>i.obra).filter(Boolean))].length;
   const rotulo=compSel?compLabel(compSel):'acumulado geral';
   document.getElementById('dash-geral').innerHTML=`
@@ -1169,7 +1189,7 @@ function renderDashboard(){
 
   // ── Evolução mensal (clique seleciona mês)
   const byComp={};
-  data.forEach(i=>{
+  dataEmp.forEach(i=>{
     if(!i.comp)return;
     if(!byComp[i.comp])byComp[i.comp]={prov:0,med:0,fat:0};
     byComp[i.comp].prov+=Number(i.provisao||0);
