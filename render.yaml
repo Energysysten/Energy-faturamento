@@ -3,7 +3,15 @@ services:
     name: energy-faturamento
     runtime: python
     buildCommand: pip install -r requirements.txt
-    startCommand: python -m gunicorn app:app
+    startCommand: gunicorn app:app --workers 2 --bind 0.0.0.0:$PORT
     envVars:
-      - key: PYTHON_VERSION
-        value: 3.11.0
+      - key: FAT_DB
+        value: /data/faturamento.db
+      - key: FAT_BASE
+        value: /opt/render/project/src
+      - key: FAT_TMPL
+        value: /opt/render/project/src/templates
+    disk:
+      name: energy-db
+      mountPath: /data
+      sizeGB: 1

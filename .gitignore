@@ -1,32 +1,12 @@
-# Dados sensíveis
+faturamento.db
 credentials.json
-token.json
 token_envio.json
-*.db
-
-# Backups e planilhas locais
-Controle_Medicoes_backup_*.xlsx
 Controle_Medicoes.xlsx
-*.~lock.*
-
-# Anexos (PDFs e XLSXs de medições)
-Anexos/
-
-# Logs
-*.log
-processamento.log
-launchagent.log
-
-# macOS
-.DS_Store
-
-# Python
+Modelo_Medicoes.xlsx
 __pycache__/
 *.pyc
-*.pyo
 .env
-venv/
-
-# Arquivos de configuração local
-.claude/
-com.energysysten.processar-medicoes.plist
+/tmp/
+cloudflared.log
+*.log
+publicar.sh
