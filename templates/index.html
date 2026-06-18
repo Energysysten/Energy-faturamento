@@ -1060,7 +1060,24 @@ function setDashEmpresa(val){
 }
 
 function renderDashboard(){
-  if(!data.length)return;
+  if(!data.length){
+    document.getElementById('dash-geral').innerHTML=`
+      <div style="grid-column:1/-1;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:2.5rem 2rem;text-align:center">
+        <div style="font-size:2rem;margin-bottom:.75rem">📂</div>
+        <div style="font-size:16px;font-weight:700;color:#1a1a2e;margin-bottom:.5rem">Nenhum dado encontrado</div>
+        <div style="font-size:13px;color:#666;margin-bottom:1.5rem">O banco de dados está vazio. Importe o arquivo FATURAMENTO.xlsx para começar.</div>
+        <button class="btn primary" onclick="switchTab('provisao');setTimeout(()=>document.getElementById('file-import').click(),200)">
+          ⬆ Importar dados agora
+        </button>
+      </div>`;
+    document.getElementById('dash-kpis').innerHTML='';
+    document.getElementById('dash-comparativo').innerHTML='';
+    document.getElementById('dash-ctr-tbody').innerHTML='';
+    document.getElementById('dash-gestores').innerHTML='';
+    document.getElementById('dash-pendentes-tbody').innerHTML='';
+    document.getElementById('dash-pendentes-empty').style.display='none';
+    return;
+  }
 
   // ── Filtro de empresa
   const dataEmp=dashEmpresaSel?data.filter(i=>i.empresa===dashEmpresaSel):data;
