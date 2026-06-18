@@ -11,14 +11,13 @@ from flask import (Flask, render_template, jsonify, request,
 import pandas as pd
 import sqlite3
 
-_TMPL = str(BASE_DIR / "templates")
-app = Flask(__name__, template_folder=_TMPL)
-app.secret_key = "energy-fat-2026"
-
 BASE_DIR   = Path(__file__).parent
 DB_PATH    = BASE_DIR / "faturamento.db"
 FAT_PATH   = Path("/Users/leonardocarmo/Library/CloudStorage/OneDrive-Pessoal/Energy/FATURAMENTO.xlsx")
 CTRL_PATH  = BASE_DIR / "Controle_Medicoes.xlsx"
+
+app = Flask(__name__, template_folder=str(BASE_DIR / "templates"))
+app.secret_key = "energy-fat-2026"
 
 USERS = {
     "admin":  {"password": "admin123",   "role": "admin"},
