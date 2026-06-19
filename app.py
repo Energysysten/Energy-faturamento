@@ -797,24 +797,28 @@ def api_nfs_sync_mapa():
     now = datetime.now().isoformat()
     atualizadas = 0
     detalhes = []
+    conn = get_db()
     try:
-        with get_db() as conn:
-            links = conn.execute(
-                "SELECT mf.id, mf.n_folha, mf.medicao_id FROM medicao_folhas mf"
-            ).fetchall()
-            for lk in links:
-                nf = mapa.get(str(lk["n_folha"]))
-                if nf:
-                    conn.execute("UPDATE medicao_folhas SET nf=? WHERE id=?", (str(nf), lk["id"]))
-                    if lk["medicao_id"]:
-                        conn.execute(
-                            "UPDATE medicoes SET status=CASE WHEN status IN ('medicao','validado','aprovado') THEN 'nf_emitida' ELSE status END, updated_at=? WHERE id=?",
-                            (now, lk["medicao_id"])
-                        )
-                    atualizadas += 1
-                    detalhes.append({"n_folha": lk["n_folha"], "nf": nf})
+        links = conn.execute(
+            "SELECT mf.id, mf.n_folha, mf.medicao_id FROM medicao_folhas mf"
+        ).fetchall()
+        for lk in links:
+            nf = mapa.get(str(lk["n_folha"]))
+            if nf:
+                conn.execute("UPDATE medicao_folhas SET nf=? WHERE id=?", (str(nf), lk["id"]))
+                if lk["medicao_id"]:
+                    conn.execute(
+                        "UPDATE medicoes SET status=CASE WHEN status IN ('medicao','validado','aprovado') THEN 'nf_emitida' ELSE status END, updated_at=? WHERE id=?",
+                        (now, lk["medicao_id"])
+                    )
+                atualizadas += 1
+                detalhes.append({"n_folha": lk["n_folha"], "nf": nf})
+        conn.commit()
     except Exception as e:
-        return jsonify({"erro": str(e), "atualizadas": atualizadas}), 500
+        conn.rollback()
+        return jsonify({"erro": str(e), "tipo": type(e).__name__, "atualizadas": atualizadas}), 500
+    finally:
+        conn.close()
     return jsonify({"ok": True, "atualizadas": atualizadas, "detalhes": detalhes})
 
 
