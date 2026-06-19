@@ -799,11 +799,11 @@ def api_nfs_sync_mapa():
     detalhes = []
     with get_db() as conn:
         links = conn.execute(
-            "SELECT mf.id, mf.n_folha, mf.medicao_id FROM medicao_folhas mf"
+            "SELECT mf.id, mf.n_folha, mf.medicao_id, COALESCE(mf.nf,'') as nf FROM medicao_folhas mf"
         ).fetchall()
         for lk in links:
             nf = mapa.get(lk["n_folha"])
-            if nf and (lk["nf"] or "") != nf:
+            if nf and lk["nf"] != nf:
                 conn.execute("UPDATE medicao_folhas SET nf=? WHERE id=?", (nf, lk["id"]))
                 conn.execute(
                     "UPDATE medicoes SET status=CASE WHEN status IN ('medicao','validado','aprovado') THEN 'nf_emitida' ELSE status END, updated_at=? WHERE id=?",
