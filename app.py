@@ -785,6 +785,35 @@ def api_escanear_nfs():
     })
 
 
+@app.route("/api/nfs/sync-mapa", methods=["POST"])
+@login_required
+def api_nfs_sync_mapa():
+    """Recebe {n_folha: nf_number, ...} e atualiza medicao_folhas.nf + status das medicoes."""
+    if session.get("role") not in ("admin", "financeiro"):
+        return jsonify({"erro": "Sem permissão"}), 403
+    mapa = request.json or {}
+    if not mapa:
+        return jsonify({"erro": "Mapa vazio"}), 400
+    now = datetime.now().isoformat()
+    atualizadas = 0
+    detalhes = []
+    with get_db() as conn:
+        links = conn.execute(
+            "SELECT mf.id, mf.n_folha, mf.medicao_id FROM medicao_folhas mf"
+        ).fetchall()
+        for lk in links:
+            nf = mapa.get(lk["n_folha"])
+            if nf and lk["nf"] != nf:
+                conn.execute("UPDATE medicao_folhas SET nf=? WHERE id=?", (nf, lk["id"]))
+                conn.execute(
+                    "UPDATE medicoes SET status=CASE WHEN status IN ('medicao','validado','aprovado') THEN 'nf_emitida' ELSE status END, updated_at=? WHERE id=?",
+                    (now, lk["medicao_id"])
+                )
+                atualizadas += 1
+                detalhes.append({"n_folha": lk["n_folha"], "nf": nf})
+    return jsonify({"ok": True, "atualizadas": atualizadas, "detalhes": detalhes})
+
+
 @app.route("/api/preencher-datas", methods=["POST"])
 @login_required
 def api_preencher_datas():
