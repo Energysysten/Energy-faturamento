@@ -518,6 +518,10 @@ tr:hover td{background:#fafafa}
             <option value="nova">Não vinculadas</option>
             <option value="vinculada">Vinculadas</option>
           </select>
+          <select id="fol-semvalor" onchange="renderFolhas()">
+            <option value="ocultar">Ocultar sem valor</option>
+            <option value="mostrar">Mostrar todas</option>
+          </select>
           <input type="text" id="fol-search" placeholder="Buscar nº folha, município..." oninput="renderFolhas()" style="width:210px">
           <button class="btn" onclick="loadFolhas()">🔄 Atualizar</button>
           <button class="btn" onclick="preencherDatas(this)" title="Extrai DATA/HORA dos PDFs e preenche datas em falta">📅 Preencher datas</button>
@@ -1595,11 +1599,16 @@ function renderFolhas(){
   const ctrFil=document.getElementById('fol-contrato').value;
   const perFil=document.getElementById('fol-periodo').value;
   const vinFil=document.getElementById('fol-vinculo').value;
+  const semValor=document.getElementById('fol-semvalor').value;
   const q=(document.getElementById('fol-search').value||'').toLowerCase().trim();
 
-  // Populate dropdowns
-  const allCtrs=[...new Set(folhas.map(f=>f.n_contrato).filter(Boolean))].sort();
-  const allPersRaw=[...new Set(folhas.map(f=>f.periodo?f.periodo.substring(0,7):null).filter(Boolean))].sort();
+  // Folhas com dados reais (para popular dropdowns e ocultar zeradas)
+  const folhasComDados=folhas.filter(f=>f.valor_total>0||f.n_contrato);
+  const baseDropdown=semValor==='ocultar'?folhasComDados:folhas;
+
+  // Populate dropdowns apenas com valores presentes nas folhas com dados
+  const allCtrs=[...new Set(baseDropdown.map(f=>f.n_contrato).filter(Boolean))].sort();
+  const allPersRaw=[...new Set(baseDropdown.map(f=>f.periodo?f.periodo.substring(0,7):null).filter(Boolean))].sort();
   const selC=document.getElementById('fol-contrato');
   const selP=document.getElementById('fol-periodo');
   const curC=selC.value, curP=selP.value?selP.value.substring(0,7):'';
@@ -1624,6 +1633,7 @@ function renderFolhas(){
 
   let rows=folhas.filter(f=>{
     const vinc=vinculadas.has(f.n_folha);
+    if(semValor==='ocultar'&&!f.valor_total&&!f.n_contrato)return false;
     if(ctrFil&&f.n_contrato!==ctrFil)return false;
     if(perFil&&(f.periodo||'').substring(0,7)!==perFil)return false;
     if(vinFil==='nova'&&vinc)return false;
