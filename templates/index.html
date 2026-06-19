@@ -1082,13 +1082,24 @@ function renderDashboard(){
   const btnLimpar=document.getElementById('btn-limpar-comp');
   if(btnLimpar) btnLimpar.style.display=compComp?'inline-flex':'none';
 
+  // ── Folhas filtradas por empresa (para não misturar EC/ES nos totais)
+  const folhasEmp=dashEmpresaSel
+    ?folhas.filter(f=>{
+        // folha vinculada a item da empresa selecionada → inclui
+        if(dataEmp.some(d=>(d.folhas_vinculadas||[]).some(l=>l.n_folha===f.n_folha)))return true;
+        // folha não vinculada → usa empresa do contrato
+        const s=saldos[f.n_contrato];
+        return s?s.empresa===dashEmpresaSel:false;
+      })
+    :folhas;
+
   // ── Dados computados
-  const cur=calcMes(dataEmp,folhas,compSel);
-  const cmp=compComp?calcMes(dataEmp,folhas,compComp):null;
+  const cur=calcMes(dataEmp,folhasEmp,compSel);
+  const cmp=compComp?calcMes(dataEmp,folhasEmp,compComp):null;
   const dataFil=compSel?dataEmp.filter(i=>i.comp===compSel):dataEmp;
   const naoVincFolhas=compSel
-    ?folhas.filter(f=>f.periodo===compSel&&!dataEmp.some(d=>(d.folhas_vinculadas||[]).some(l=>l.n_folha===f.n_folha)))
-    :folhas.filter(f=>!dataEmp.some(d=>(d.folhas_vinculadas||[]).some(l=>l.n_folha===f.n_folha)));
+    ?folhasEmp.filter(f=>f.periodo===compSel&&!dataEmp.some(d=>(d.folhas_vinculadas||[]).some(l=>l.n_folha===f.n_folha)))
+    :folhasEmp.filter(f=>!dataEmp.some(d=>(d.folhas_vinculadas||[]).some(l=>l.n_folha===f.n_folha)));
   const vlNaoVinc=naoVincFolhas.reduce((a,f)=>a+Number(f.valor_total||0),0);
   const totalFaturado=cur.fat;
   const totalMedido=cur.med;
@@ -1096,7 +1107,9 @@ function renderDashboard(){
   const totalFolhas=cur.folhas.reduce((a,f)=>a+Number(f.valor_total||0),0);
 
   // ── Números gerais (filtrados pelo mês selecionado)
-  const nCtrs=Object.keys(saldos).length||[...new Set(dataEmp.map(i=>i.contrato_num).filter(Boolean))].length;
+  const nCtrs=dashEmpresaSel
+    ?Object.values(saldos).filter(s=>s.empresa===dashEmpresaSel).length
+    :(Object.keys(saldos).length||[...new Set(dataEmp.map(i=>i.contrato_num).filter(Boolean))].length);
   const nObras=[...new Set(dataFil.map(i=>i.obra).filter(Boolean))].length;
   const rotulo=compSel?compLabel(compSel):'acumulado geral';
   document.getElementById('dash-geral').innerHTML=`
