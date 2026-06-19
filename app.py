@@ -828,6 +828,17 @@ def api_nfs_sync_mapa():
     return jsonify({"ok": True, "atualizadas": atualizadas, "detalhes": detalhes})
 
 
+@app.route("/api/diag-db")
+@login_required
+def api_diag_db():
+    """Diagnóstico: lista colunas das tabelas principais."""
+    with get_db() as conn:
+        cols = {}
+        for tbl in ("medicao_folhas", "medicoes", "folhas_recebidas"):
+            rows = conn.execute(f"PRAGMA table_info({tbl})").fetchall()
+            cols[tbl] = [r["name"] for r in rows]
+    return jsonify(cols)
+
 @app.route("/api/preencher-datas", methods=["POST"])
 @login_required
 def api_preencher_datas():
