@@ -452,7 +452,13 @@ def api_list():
         rows = conn.execute(
             "SELECT * FROM medicoes WHERE delete_requested=0 ORDER BY comp DESC,contrato_num,obra"
         ).fetchall()
-        links = conn.execute("SELECT * FROM medicao_folhas ORDER BY vinculado_em").fetchall()
+        links = conn.execute(
+            "SELECT mf.id, mf.medicao_id, mf.n_folha, mf.valor, mf.periodo, mf.vinculado_em,"
+            " COALESCE(NULLIF(mf.nf,''), fr.nf, '') AS nf"
+            " FROM medicao_folhas mf"
+            " LEFT JOIN folhas_recebidas fr ON fr.n_folha = mf.n_folha"
+            " ORDER BY mf.vinculado_em"
+        ).fetchall()
     by_med = {}
     for lk in links:
         by_med.setdefault(lk["medicao_id"], []).append(dict(lk))
