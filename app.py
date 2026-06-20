@@ -201,9 +201,13 @@ def init_db():
             conn.execute("ALTER TABLE usuarios ADD COLUMN email TEXT")
         except Exception:
             pass
-        # Migrar coluna nf em medicao_folhas
+        # Migrar coluna nf em medicao_folhas e folhas_recebidas
         try:
             conn.execute("ALTER TABLE medicao_folhas ADD COLUMN nf TEXT")
+        except Exception:
+            pass
+        try:
+            conn.execute("ALTER TABLE folhas_recebidas ADD COLUMN nf TEXT")
         except Exception:
             pass
         # Migrar coluna status_prov em medicoes
