@@ -832,6 +832,64 @@ def api_nfs_sync_mapa():
     return jsonify({"ok": True, "atualizadas": atualizadas, "detalhes": detalhes})
 
 
+@app.route("/api/nfs/upload", methods=["POST"])
+@login_required
+def api_nfs_upload():
+    """Recebe PDFs de NF pelo navegador, extrai NF+folha do nome e atualiza o sistema."""
+    import re as _re
+    PADRAO = _re.compile(r'^(\d+)_(\d{8,})_\d+_.+\.pdf$', _re.IGNORECASE)
+    arquivos = request.files.getlist("files")
+    if not arquivos:
+        return jsonify({"erro": "Nenhum arquivo enviado"}), 400
+    now = datetime.now().isoformat()
+    resultado = []
+    conn = get_db()
+    try:
+        folhas_db = {r["n_folha"]: dict(r) for r in conn.execute("SELECT * FROM folhas_recebidas").fetchall()}
+        for arq in arquivos:
+            nome = arq.filename
+            m = PADRAO.match(nome)
+            if not m:
+                resultado.append({"arquivo": nome, "status": "nome_invalido", "msg": "Nome não segue padrão NF_FOLHA_CTR_MUN.pdf"})
+                continue
+            num_nf  = m.group(1)
+            n_folha = m.group(2)
+            if n_folha in folhas_db:
+                f = folhas_db[n_folha]
+                nf_atual = f.get("nf") or ""
+                if nf_atual == num_nf:
+                    resultado.append({"arquivo": nome, "nf": num_nf, "n_folha": n_folha, "status": "ja_vinculada"})
+                    continue
+                conn.execute("UPDATE folhas_recebidas SET nf=? WHERE n_folha=?", (num_nf, n_folha))
+                # atualizar medicao_folhas via JOIN já funciona pelo SELECT; mas garante o campo direto também
+                links = conn.execute("SELECT id, medicao_id FROM medicao_folhas WHERE n_folha=?", (n_folha,)).fetchall()
+                for lk in links:
+                    conn.execute("UPDATE medicao_folhas SET nf=? WHERE id=?", (num_nf, lk["id"]))
+                    conn.execute(
+                        "UPDATE medicoes SET status=CASE WHEN status IN ('medicao','validado','aprovado') THEN 'nf_emitida' ELSE status END, updated_at=? WHERE id=?",
+                        (now, lk["medicao_id"])
+                    )
+                resultado.append({"arquivo": nome, "nf": num_nf, "n_folha": n_folha,
+                                   "status": "ok", "obra": f.get("municipio",""), "links": len(links)})
+            else:
+                resultado.append({"arquivo": nome, "nf": num_nf, "n_folha": n_folha,
+                                   "status": "folha_nao_cadastrada",
+                                   "msg": f"Folha {n_folha} não encontrada no sistema"})
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        return jsonify({"erro": str(e)}), 500
+    finally:
+        conn.close()
+    ok    = [r for r in resultado if r["status"] == "ok"]
+    sem   = [r for r in resultado if r["status"] == "folha_nao_cadastrada"]
+    javin = [r for r in resultado if r["status"] == "ja_vinculada"]
+    inv   = [r for r in resultado if r["status"] == "nome_invalido"]
+    return jsonify({"ok": True, "total": len(resultado),
+                    "vinculadas": len(ok), "sem_folha": len(sem),
+                    "ja_vinculadas": len(javin), "nome_invalido": len(inv),
+                    "detalhes": resultado})
+
 @app.route("/api/diag-db")
 @login_required
 def api_diag_db():

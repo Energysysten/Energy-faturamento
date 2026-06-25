@@ -320,6 +320,9 @@ tr:hover td{background:#fafafa}
     <button class="tab-btn" id="tab-btn-faturado" onclick="switchTab('faturado')">
       🧾 Faturado
     </button>
+    <button class="tab-btn" id="tab-btn-notas" onclick="switchTab('notas')">
+      📎 Notas Fiscais
+    </button>
     <button class="tab-btn" id="tab-btn-contratos" onclick="switchTab('contratos')">
       📁 Contratos
     </button>
@@ -596,6 +599,79 @@ tr:hover td{background:#fafafa}
   </div>
 
   <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <!-- ABA: NOTAS FISCAIS                                                      -->
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <div class="tab-pane" id="tab-notas">
+    <div class="section">
+      <div class="section-header">
+        <span class="section-title">Upload de Notas Fiscais</span>
+      </div>
+      <p style="color:#666;margin-bottom:16px;font-size:13px">
+        Selecione os PDFs de NF do seu computador. O nome do arquivo deve seguir o padrão
+        <strong>NF_FOLHA_CONTRATO_MUNICIPIO.pdf</strong> (ex: <code>463_1011836599_0702_GOIANIRA.pdf</code>).
+      </p>
+
+      <!-- Drop zone -->
+      <div id="nf-dropzone" onclick="document.getElementById('nf-file-input').click()"
+           style="border:2px dashed #c7d2fe;border-radius:12px;padding:40px;text-align:center;cursor:pointer;background:#f5f7ff;transition:background .2s">
+        <div style="font-size:36px;margin-bottom:8px">📂</div>
+        <div style="font-weight:600;color:#4f46e5;margin-bottom:4px">Clique para selecionar arquivos</div>
+        <div style="font-size:12px;color:#888">ou arraste os PDFs aqui · Múltiplos arquivos permitidos</div>
+        <input type="file" id="nf-file-input" multiple accept=".pdf" style="display:none" onchange="nfHandleFiles(this.files)">
+      </div>
+
+      <!-- Preview antes de enviar -->
+      <div id="nf-preview" style="display:none;margin-top:20px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <span style="font-weight:600;color:#1e293b">Arquivos selecionados: <span id="nf-count">0</span></span>
+          <div style="display:flex;gap:8px">
+            <button onclick="nfClear()" class="btn-sec" style="padding:6px 14px;font-size:13px">Limpar</button>
+            <button onclick="nfUpload()" id="nf-btn-send" class="btn-pri" style="padding:6px 16px;font-size:13px">Enviar e vincular</button>
+          </div>
+        </div>
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <thead><tr style="background:#f1f5f9">
+            <th style="padding:8px 10px;text-align:left;color:#64748b">Arquivo</th>
+            <th style="padding:8px 10px;text-align:left;color:#64748b">NF</th>
+            <th style="padding:8px 10px;text-align:left;color:#64748b">Nº Folha</th>
+            <th style="padding:8px 10px;text-align:left;color:#64748b">Status</th>
+          </tr></thead>
+          <tbody id="nf-preview-body"></tbody>
+        </table>
+      </div>
+
+      <!-- Resultado pós-upload -->
+      <div id="nf-resultado" style="display:none;margin-top:20px"></div>
+    </div>
+
+    <!-- Folhas SEM NF cadastrada -->
+    <div class="section" style="margin-top:20px">
+      <div class="section-header">
+        <span class="section-title">Folhas sem Nota Fiscal</span>
+        <div style="display:flex;gap:8px;align-items:center">
+          <select id="nf-check-periodo" style="padding:5px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px">
+            <option value="">Todos os períodos</option>
+          </select>
+          <button onclick="nfCheckSemNF()" class="btn-sec" style="padding:6px 14px;font-size:13px">🔍 Verificar</button>
+        </div>
+      </div>
+      <div id="nf-sem-nf-body">
+        <p style="color:#888;font-size:13px">Clique em "Verificar" para listar folhas sem NF vinculada.</p>
+      </div>
+    </div>
+
+    <!-- NFs sem folha no sistema -->
+    <div class="section" style="margin-top:20px">
+      <div class="section-header">
+        <span class="section-title">NFs enviadas cujas folhas não estão cadastradas</span>
+      </div>
+      <div id="nf-sem-folha-body">
+        <p style="color:#888;font-size:13px">Aparece aqui após fazer o upload de NFs.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
   <!-- ABA: CONTRATOS                                                         -->
   <!-- ══════════════════════════════════════════════════════════════════════ -->
   <div class="tab-pane" id="tab-contratos">
@@ -817,7 +893,7 @@ function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t
 // ── Navegação por abas ────────────────────────────────────────────────────
 
 let activeTab='dashboard';
-const TABS=['dashboard','provisao','medido','faturado','contratos'];
+const TABS=['dashboard','provisao','medido','faturado','notas','contratos'];
 
 function syncGlobalMes(){
   // Sincroniza o filtro global de mês para os selects das abas filhas
@@ -841,6 +917,7 @@ function switchTab(tab){
   if(tab==='provisao')applyFilters();
   if(tab==='medido'){if(!folhas.length)loadFolhas();else renderFolhas();}
   if(tab==='faturado'){if(!folhas.length)loadFolhas();else renderFaturado();}
+  if(tab==='notas'){nfInitTab();}
   if(tab==='contratos'){renderResumo();renderMensal();}
 }
 
@@ -3142,6 +3219,181 @@ setInterval(sendHeartbeat, 30000);
 // Atualiza contagem de online a cada 15s
 refreshOnline();
 setInterval(refreshOnline, 15000);
+
+// ── Aba Notas Fiscais ─────────────────────────────────────────────────────
+let nfArquivosSelecionados = [];
+
+function nfInitTab(){
+  // Preencher select de período com períodos existentes nas folhas
+  const sel = document.getElementById('nf-check-periodo');
+  if(sel.options.length <= 1 && folhas.length){
+    const periodos = [...new Set(folhas.map(f=>f.periodo).filter(Boolean))].sort().reverse();
+    periodos.forEach(p=>{
+      const o = document.createElement('option');
+      o.value = p; o.textContent = p.replace(/(\d{4})-(\d{2})/, (_,y,m)=>{
+        const nomes=['','Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+        return nomes[parseInt(m)]+'/'+y;
+      });
+      sel.appendChild(o);
+    });
+  }
+  // Drag & drop
+  const dz = document.getElementById('nf-dropzone');
+  dz.addEventListener('dragover', e=>{e.preventDefault();dz.style.background='#ede9fe';});
+  dz.addEventListener('dragleave', ()=>{dz.style.background='#f5f7ff';});
+  dz.addEventListener('drop', e=>{
+    e.preventDefault(); dz.style.background='#f5f7ff';
+    nfHandleFiles(e.dataTransfer.files);
+  });
+  if(!folhas.length) loadFolhas();
+}
+
+function nfHandleFiles(files){
+  const PADRAO = /^(\d+)_(\d{8,})_\d+_.+\.pdf$/i;
+  nfArquivosSelecionados = Array.from(files);
+  const tbody = document.getElementById('nf-preview-body');
+  tbody.innerHTML = '';
+  document.getElementById('nf-count').textContent = nfArquivosSelecionados.length;
+  document.getElementById('nf-preview').style.display = 'block';
+  document.getElementById('nf-resultado').style.display = 'none';
+
+  nfArquivosSelecionados.forEach(f=>{
+    const m = PADRAO.exec(f.name);
+    const tr = document.createElement('tr');
+    tr.style.borderBottom = '1px solid #f1f5f9';
+    if(!m){
+      tr.innerHTML = `<td style="padding:7px 10px;color:#64748b;font-size:12px">${f.name}</td>
+        <td colspan="2" style="padding:7px 10px;color:#94a3b8">—</td>
+        <td style="padding:7px 10px"><span style="background:#fee2e2;color:#dc2626;border-radius:4px;padding:2px 7px;font-size:11px">Nome inválido</span></td>`;
+    } else {
+      const nf = m[1], folha = m[2];
+      const existe = folhas.some(fo=>fo.n_folha===folha);
+      const jaVinc = folhas.find(fo=>fo.n_folha===folha && fo.nf===nf);
+      const badge = jaVinc
+        ? `<span style="background:#dcfce7;color:#16a34a;border-radius:4px;padding:2px 7px;font-size:11px">Já vinculada</span>`
+        : existe
+          ? `<span style="background:#dbeafe;color:#1d4ed8;border-radius:4px;padding:2px 7px;font-size:11px">Folha encontrada</span>`
+          : `<span style="background:#fef9c3;color:#b45309;border-radius:4px;padding:2px 7px;font-size:11px">Folha não cadastrada</span>`;
+      tr.innerHTML = `<td style="padding:7px 10px;font-size:12px;color:#475569">${f.name}</td>
+        <td style="padding:7px 10px;font-weight:600">NF-${nf}</td>
+        <td style="padding:7px 10px;font-family:monospace">${folha}</td>
+        <td style="padding:7px 10px">${badge}</td>`;
+    }
+    tbody.appendChild(tr);
+  });
+}
+
+async function nfUpload(){
+  if(!nfArquivosSelecionados.length) return;
+  const btn = document.getElementById('nf-btn-send');
+  btn.disabled = true; btn.textContent = 'Enviando...';
+  const fd = new FormData();
+  nfArquivosSelecionados.forEach(f => fd.append('files', f));
+  try {
+    const resp = await fetch('/api/nfs/upload', {method:'POST', body: fd});
+    const data = await resp.json();
+    const el = document.getElementById('nf-resultado');
+    el.style.display = 'block';
+    if(data.erro){
+      el.innerHTML = `<div style="background:#fee2e2;color:#dc2626;padding:14px;border-radius:8px">Erro: ${data.erro}</div>`;
+    } else {
+      // Mostrar NFs sem folha cadastrada na seção inferior
+      const semFolha = (data.detalhes||[]).filter(d=>d.status==='folha_nao_cadastrada');
+      nfMostrarSemFolha(semFolha);
+      // Resumo
+      el.innerHTML = `
+        <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:10px;padding:16px">
+          <div style="font-weight:700;color:#15803d;margin-bottom:10px">✅ Upload concluído</div>
+          <div style="display:flex;gap:24px;flex-wrap:wrap;font-size:13px">
+            <div><span style="font-weight:600;color:#15803d">${data.vinculadas}</span> NF(s) vinculadas com sucesso</div>
+            <div><span style="font-weight:600;color:#6366f1">${data.ja_vinculadas}</span> já estavam vinculadas</div>
+            <div><span style="font-weight:600;color:#d97706">${data.sem_folha}</span> sem folha cadastrada</div>
+            ${data.nome_invalido ? `<div><span style="font-weight:600;color:#dc2626">${data.nome_invalido}</span> nome inválido</div>` : ''}
+          </div>
+          ${semFolha.length ? `<div style="margin-top:10px;font-size:12px;color:#92400e">⚠️ ${semFolha.length} arquivo(s) sem folha — veja a seção abaixo</div>` : ''}
+        </div>`;
+      // Recarregar folhas para atualizar NFs
+      if(data.vinculadas > 0) loadFolhas();
+    }
+  } catch(e){
+    document.getElementById('nf-resultado').innerHTML =
+      `<div style="background:#fee2e2;color:#dc2626;padding:14px;border-radius:8px">Erro de comunicação: ${e.message}</div>`;
+  }
+  btn.disabled = false; btn.textContent = 'Enviar e vincular';
+}
+
+function nfClear(){
+  nfArquivosSelecionados = [];
+  document.getElementById('nf-preview').style.display = 'none';
+  document.getElementById('nf-resultado').style.display = 'none';
+  document.getElementById('nf-file-input').value = '';
+}
+
+function nfCheckSemNF(){
+  if(!folhas.length){ alert('Aguarde as folhas carregarem.'); return; }
+  const periodo = document.getElementById('nf-check-periodo').value;
+  const semNF = folhas.filter(f => {
+    if(!f.valor_total && !f.n_contrato) return false; // ignora zeradas
+    if(!f.nf) return true;
+    return false;
+  }).filter(f => !periodo || f.periodo === periodo)
+    .sort((a,b)=>(b.valor_total||0)-(a.valor_total||0));
+
+  const el = document.getElementById('nf-sem-nf-body');
+  if(!semNF.length){
+    el.innerHTML = `<p style="color:#16a34a;font-weight:600;font-size:13px">✅ Todas as folhas${periodo?' de '+periodo:''} possuem NF vinculada.</p>`;
+    return;
+  }
+  const totalVal = semNF.reduce((a,f)=>a+(f.valor_total||0),0);
+  el.innerHTML = `
+    <div style="margin-bottom:10px;font-size:13px;color:#92400e;font-weight:600">
+      ${semNF.length} folha(s) sem NF · Total: R$ ${fmt(totalVal)}
+    </div>
+    <table style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead><tr style="background:#fef9c3">
+        <th style="padding:7px 10px;text-align:left;color:#78350f">Nº Folha</th>
+        <th style="padding:7px 10px;text-align:left;color:#78350f">Contrato</th>
+        <th style="padding:7px 10px;text-align:left;color:#78350f">Período</th>
+        <th style="padding:7px 10px;text-align:left;color:#78350f">Município</th>
+        <th style="padding:7px 10px;text-align:right;color:#78350f">Valor</th>
+      </tr></thead>
+      <tbody>${semNF.map(f=>`
+        <tr style="border-bottom:1px solid #fef3c7">
+          <td style="padding:6px 10px;font-family:monospace">${f.n_folha}</td>
+          <td style="padding:6px 10px">${f.n_contrato||'—'}</td>
+          <td style="padding:6px 10px">${f.periodo||'—'}</td>
+          <td style="padding:6px 10px">${f.municipio||'—'}</td>
+          <td style="padding:6px 10px;text-align:right;font-weight:600">R$ ${fmt(f.valor_total)}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>`;
+}
+
+function nfMostrarSemFolha(lista){
+  const el = document.getElementById('nf-sem-folha-body');
+  if(!lista.length){
+    el.innerHTML = `<p style="color:#16a34a;font-weight:600;font-size:13px">✅ Todas as NFs enviadas têm folha cadastrada no sistema.</p>`;
+    return;
+  }
+  el.innerHTML = `
+    <div style="margin-bottom:10px;font-size:13px;color:#dc2626;font-weight:600">
+      ${lista.length} NF(s) sem folha cadastrada — estas folhas precisam ser recebidas por e-mail ou cadastradas manualmente.
+    </div>
+    <table style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead><tr style="background:#fee2e2">
+        <th style="padding:7px 10px;text-align:left;color:#991b1b">Arquivo</th>
+        <th style="padding:7px 10px;text-align:left;color:#991b1b">NF</th>
+        <th style="padding:7px 10px;text-align:left;color:#991b1b">Nº Folha</th>
+      </tr></thead>
+      <tbody>${lista.map(d=>`
+        <tr style="border-bottom:1px solid #fecaca">
+          <td style="padding:6px 10px;font-size:11px;color:#64748b">${d.arquivo}</td>
+          <td style="padding:6px 10px;font-weight:600">NF-${d.nf}</td>
+          <td style="padding:6px 10px;font-family:monospace">${d.n_folha}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>`;
+}
 </script>
 <!-- Modal Escanear NFs -->
 <div id="modal-nf-scan" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:1000;align-items:center;justify-content:center">
