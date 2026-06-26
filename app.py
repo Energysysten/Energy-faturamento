@@ -832,33 +832,56 @@ def api_nfs_sync_mapa():
     return jsonify({"ok": True, "atualizadas": atualizadas, "detalhes": detalhes})
 
 
-def _extrair_nf_do_pdf(file_bytes):
-    """Tenta extrair o número da NF do conteúdo do PDF. Retorna string ou None."""
+def _extrair_dados_nf_pdf(file_bytes):
+    """Extrai NF e folha do conteúdo de uma NFS-e. Retorna (nf, folha) ou (None, None)."""
     try:
         import pdfplumber, io, re as _re
-        NF_PADROES = [
-            _re.compile(r'nota\s+fiscal[^\d]{0,20}(\d{3,6})', _re.IGNORECASE),
-            _re.compile(r'\bNF[.\s\-]*n[°º]?[.\s]*(\d{3,6})', _re.IGNORECASE),
-            _re.compile(r'n[°º]\s*(\d{3,6})', _re.IGNORECASE),
-            _re.compile(r'numero[:\s]+(\d{3,6})', _re.IGNORECASE),
-        ]
         with pdfplumber.open(io.BytesIO(file_bytes)) as pdf:
             texto = " ".join((p.extract_text() or "") for p in pdf.pages[:3])
+        # Número da NF: campo "Número da Nota Fiscal\n{numero}"
+        nf = None
+        NF_PADROES = [
+            _re.compile(r'N[uú]mero\s+da\s+Nota\s+Fiscal\s*[\n:]*\s*(\d{3,6})', _re.IGNORECASE),
+            _re.compile(r'nota\s+fiscal[^\d]{0,20}(\d{3,6})', _re.IGNORECASE),
+            _re.compile(r'\bNFS?-?e\b[^\d]{0,20}(\d{3,6})', _re.IGNORECASE),
+            _re.compile(r'\bNF[.\s\-]*n[°º]?[.\s]*(\d{3,6})', _re.IGNORECASE),
+        ]
         for pat in NF_PADROES:
             m = pat.search(texto)
             if m:
-                return m.group(1)
+                nf = m.group(1)
+                break
+        # Número da folha: "FOLHA DE REGISTRO: 1011..." ou "FOLHADEREGISTRO:1011..."
+        folha = None
+        FOLHA_PADROES = [
+            _re.compile(r'FOLHA\s*DE\s*REGISTRO\s*:?\s*(\d{8,})', _re.IGNORECASE),
+            _re.compile(r'FOLHADEREGISTRO\s*:?\s*(\d{8,})', _re.IGNORECASE),
+            _re.compile(r'N[°º]?\s*DA\s*FOLHA\s*:?\s*(\d{8,})', _re.IGNORECASE),
+        ]
+        for pat in FOLHA_PADROES:
+            m = pat.search(texto)
+            if m:
+                folha = m.group(1)
+                break
+        return nf, folha
     except Exception:
         pass
-    return None
+    return None, None
 
 
 @app.route("/api/nfs/upload", methods=["POST"])
 @login_required
 def api_nfs_upload():
-    """Recebe PDFs de NF pelo navegador, extrai NF+folha do nome (ou do conteúdo do PDF como fallback)."""
+    """Recebe PDFs de NF pelo navegador. Suporta padrões:
+       1. NF_FOLHA_CTR_MUN.pdf  — extrai tudo do nome
+       2. NF_DESCRICAO.pdf      — NF no nome, folha extraída do PDF
+       3. qualquer nome         — NF e folha extraídas do PDF
+    """
     import re as _re
-    PADRAO = _re.compile(r'^(\d+)_(\d{8,})_\d+_.+\.pdf$', _re.IGNORECASE)
+    # Padrão completo: 1284_1011609952_4600019416_PARA.pdf
+    PADRAO_COMPLETO = _re.compile(r'^(\d+)_(\d{8,})_\d+_.+\.pdf$', _re.IGNORECASE)
+    # Padrão NF-only no nome: 1284_EQUATORIAL_PARA.pdf  (NF no início, sem folha longa)
+    PADRAO_NF_NOME  = _re.compile(r'^(\d{3,6})_[^0-9].+\.pdf$', _re.IGNORECASE)
     arquivos = request.files.getlist("files")
     if not arquivos:
         return jsonify({"erro": "Nenhum arquivo enviado"}), 400
@@ -870,19 +893,25 @@ def api_nfs_upload():
         for arq in arquivos:
             nome = arq.filename
             file_bytes = arq.read()
-            m = PADRAO.match(nome)
-            if not m:
-                # Fallback: tentar ler o número da NF do conteúdo do PDF
-                num_nf = _extrair_nf_do_pdf(file_bytes)
+            m_completo = PADRAO_COMPLETO.match(nome)
+            if m_completo:
+                num_nf  = m_completo.group(1)
+                n_folha = m_completo.group(2)
+            else:
+                # Tentar extrair NF e folha do conteúdo do PDF
+                nf_pdf, folha_pdf = _extrair_dados_nf_pdf(file_bytes)
+                # NF: preferir do nome se seguir padrão NF_DESCRICAO
+                m_nf = PADRAO_NF_NOME.match(nome)
+                num_nf  = m_nf.group(1) if m_nf else nf_pdf
+                n_folha = folha_pdf
                 if not num_nf:
                     resultado.append({"arquivo": nome, "status": "nf_nao_encontrada",
-                                      "msg": "Nome fora do padrão e não foi possível ler a NF do PDF"})
-                else:
+                                      "msg": "Não foi possível identificar o número da NF"})
+                    continue
+                if not n_folha:
                     resultado.append({"arquivo": nome, "nf": num_nf, "status": "nf_sem_folha",
-                                      "msg": f"NF {num_nf} lida do PDF — informe o número da folha para vincular"})
-                continue
-            num_nf  = m.group(1)
-            n_folha = m.group(2)
+                                      "msg": f"NF {num_nf} identificada — informe o número da folha para vincular"})
+                    continue
             if n_folha in folhas_db:
                 f = folhas_db[n_folha]
                 nf_atual = f.get("nf") or ""
