@@ -832,10 +832,31 @@ def api_nfs_sync_mapa():
     return jsonify({"ok": True, "atualizadas": atualizadas, "detalhes": detalhes})
 
 
+def _extrair_nf_do_pdf(file_bytes):
+    """Tenta extrair o número da NF do conteúdo do PDF. Retorna string ou None."""
+    try:
+        import pdfplumber, io, re as _re
+        NF_PADROES = [
+            _re.compile(r'nota\s+fiscal[^\d]{0,20}(\d{3,6})', _re.IGNORECASE),
+            _re.compile(r'\bNF[.\s\-]*n[°º]?[.\s]*(\d{3,6})', _re.IGNORECASE),
+            _re.compile(r'n[°º]\s*(\d{3,6})', _re.IGNORECASE),
+            _re.compile(r'numero[:\s]+(\d{3,6})', _re.IGNORECASE),
+        ]
+        with pdfplumber.open(io.BytesIO(file_bytes)) as pdf:
+            texto = " ".join((p.extract_text() or "") for p in pdf.pages[:3])
+        for pat in NF_PADROES:
+            m = pat.search(texto)
+            if m:
+                return m.group(1)
+    except Exception:
+        pass
+    return None
+
+
 @app.route("/api/nfs/upload", methods=["POST"])
 @login_required
 def api_nfs_upload():
-    """Recebe PDFs de NF pelo navegador, extrai NF+folha do nome e atualiza o sistema."""
+    """Recebe PDFs de NF pelo navegador, extrai NF+folha do nome (ou do conteúdo do PDF como fallback)."""
     import re as _re
     PADRAO = _re.compile(r'^(\d+)_(\d{8,})_\d+_.+\.pdf$', _re.IGNORECASE)
     arquivos = request.files.getlist("files")
@@ -848,9 +869,17 @@ def api_nfs_upload():
         folhas_db = {r["n_folha"]: dict(r) for r in conn.execute("SELECT * FROM folhas_recebidas").fetchall()}
         for arq in arquivos:
             nome = arq.filename
+            file_bytes = arq.read()
             m = PADRAO.match(nome)
             if not m:
-                resultado.append({"arquivo": nome, "status": "nome_invalido", "msg": "Nome não segue padrão NF_FOLHA_CTR_MUN.pdf"})
+                # Fallback: tentar ler o número da NF do conteúdo do PDF
+                num_nf = _extrair_nf_do_pdf(file_bytes)
+                if not num_nf:
+                    resultado.append({"arquivo": nome, "status": "nf_nao_encontrada",
+                                      "msg": "Nome fora do padrão e não foi possível ler a NF do PDF"})
+                else:
+                    resultado.append({"arquivo": nome, "nf": num_nf, "status": "nf_sem_folha",
+                                      "msg": f"NF {num_nf} lida do PDF — informe o número da folha para vincular"})
                 continue
             num_nf  = m.group(1)
             n_folha = m.group(2)
@@ -861,7 +890,6 @@ def api_nfs_upload():
                     resultado.append({"arquivo": nome, "nf": num_nf, "n_folha": n_folha, "status": "ja_vinculada"})
                     continue
                 conn.execute("UPDATE folhas_recebidas SET nf=? WHERE n_folha=?", (num_nf, n_folha))
-                # atualizar medicao_folhas via JOIN já funciona pelo SELECT; mas garante o campo direto também
                 links = conn.execute("SELECT id, medicao_id FROM medicao_folhas WHERE n_folha=?", (n_folha,)).fetchall()
                 for lk in links:
                     conn.execute("UPDATE medicao_folhas SET nf=? WHERE id=?", (num_nf, lk["id"]))
@@ -884,11 +912,36 @@ def api_nfs_upload():
     ok    = [r for r in resultado if r["status"] == "ok"]
     sem   = [r for r in resultado if r["status"] == "folha_nao_cadastrada"]
     javin = [r for r in resultado if r["status"] == "ja_vinculada"]
-    inv   = [r for r in resultado if r["status"] == "nome_invalido"]
+    inv   = [r for r in resultado if r["status"] in ("nf_nao_encontrada", "nf_sem_folha")]
     return jsonify({"ok": True, "total": len(resultado),
                     "vinculadas": len(ok), "sem_folha": len(sem),
                     "ja_vinculadas": len(javin), "nome_invalido": len(inv),
                     "detalhes": resultado})
+
+
+@app.route("/api/nfs/vincular-manual", methods=["POST"])
+@login_required
+def api_nfs_vincular_manual():
+    """Vincula manualmente uma NF a uma folha específica."""
+    data = request.json or {}
+    num_nf  = str(data.get("nf", "")).strip()
+    n_folha = str(data.get("n_folha", "")).strip()
+    if not num_nf or not n_folha:
+        return jsonify({"erro": "nf e n_folha são obrigatórios"}), 400
+    now = datetime.now().isoformat()
+    with get_db() as conn:
+        existe = conn.execute("SELECT id FROM folhas_recebidas WHERE n_folha=?", (n_folha,)).fetchone()
+        if not existe:
+            return jsonify({"erro": f"Folha {n_folha} não encontrada"}), 404
+        conn.execute("UPDATE folhas_recebidas SET nf=? WHERE n_folha=?", (num_nf, n_folha))
+        links = conn.execute("SELECT id, medicao_id FROM medicao_folhas WHERE n_folha=?", (n_folha,)).fetchall()
+        for lk in links:
+            conn.execute("UPDATE medicao_folhas SET nf=? WHERE id=?", (num_nf, lk["id"]))
+            conn.execute(
+                "UPDATE medicoes SET status=CASE WHEN status IN ('medicao','validado','aprovado') THEN 'nf_emitida' ELSE status END, updated_at=? WHERE id=?",
+                (now, lk["medicao_id"])
+            )
+    return jsonify({"ok": True, "nf": num_nf, "n_folha": n_folha, "links_atualizados": len(links)})
 
 @app.route("/api/diag-db")
 @login_required
