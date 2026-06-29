@@ -878,9 +878,11 @@ def api_nfs_upload():
        3. qualquer nome         — NF e folha extraídas do PDF
     """
     import re as _re
-    # Padrão completo: 1284_1011609952_4600019416_PARA.pdf
+    # Padrão 1 completo: 1284_1011609952_4600019416_PARA.pdf
     PADRAO_COMPLETO = _re.compile(r'^(\d+)_(\d{8,})_\d+_.+\.pdf$', _re.IGNORECASE)
-    # Padrão NF-only no nome: 1284_EQUATORIAL_PARA.pdf  (NF no início, sem folha longa)
+    # Padrão 2: 1407_1011638406_EQUATORIAL PARA.pdf  (NF + folha no nome, sem contrato)
+    PADRAO_NF_FOLHA = _re.compile(r'^(\d{3,6})_(\d{8,})_.+\.pdf$', _re.IGNORECASE)
+    # Padrão 3: 1284_EQUATORIAL_PARA.pdf  (só NF no nome, folha vem do PDF)
     PADRAO_NF_NOME  = _re.compile(r'^(\d{3,6})_[^0-9].+\.pdf$', _re.IGNORECASE)
     arquivos = request.files.getlist("files")
     if not arquivos:
@@ -893,7 +895,7 @@ def api_nfs_upload():
         for arq in arquivos:
             nome = arq.filename
             file_bytes = arq.read()
-            m_completo = PADRAO_COMPLETO.match(nome)
+            m_completo = PADRAO_COMPLETO.match(nome) or PADRAO_NF_FOLHA.match(nome)
             if m_completo:
                 num_nf  = m_completo.group(1)
                 n_folha = m_completo.group(2)
