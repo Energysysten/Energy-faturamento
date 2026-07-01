@@ -978,11 +978,8 @@ def api_diag_db():
 @login_required
 def api_preencher_datas():
     """Extrai DATA/HORA dos PDFs das folhas e preenche Data Recebimento no Controle_Medicoes.xlsx."""
-    import re as _re, shutil
-    try:
-        import pdfplumber
-    except ImportError:
-        return jsonify({"erro": "pdfplumber não instalado. Execute: pip install pdfplumber"}), 500
+    import re as _re, shutil, io
+    from pdfminer.high_level import extract_text as _pdf_extract_text
 
     XLSX = "/Users/leonardocarmo/Documents/Claude/Projects/Faturamento/Controle_Medicoes.xlsx"
 
@@ -1026,14 +1023,11 @@ def api_preencher_datas():
         # Extrair DATA/HORA do PDF
         data_hora = None
         try:
-            with pdfplumber.open(arquivo) as pdf:
-                for page in pdf.pages[:3]:
-                    text = page.extract_text() or ''
-                    # Padrão: DATA/HORA: DD/MM/YYYY HH:MM:SS  ou  DATA: DD/MM/YYYY
-                    m = _re.search(r'DATA(?:/HORA)?[:\s]+(\d{2}/\d{2}/\d{4})', text, _re.IGNORECASE)
-                    if m:
-                        data_hora = m.group(1)
-                        break
+            with open(arquivo, 'rb') as _f:
+                text = _pdf_extract_text(io.BytesIO(_f.read()))
+            m = _re.search(r'DATA(?:/HORA)?[:\s]+(\d{2}/\d{2}/\d{4})', text, _re.IGNORECASE)
+            if m:
+                data_hora = m.group(1)
         except Exception as e:
             erros.append({"folha": str(n_folha), "erro": str(e)})
             continue
