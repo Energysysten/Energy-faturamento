@@ -835,34 +835,23 @@ def api_nfs_sync_mapa():
 def _extrair_dados_nf_pdf(file_bytes):
     """Extrai NF e folha do conteúdo de uma NFS-e. Retorna (nf, folha) ou (None, None)."""
     try:
-        import pdfplumber, io, re as _re
-        with pdfplumber.open(io.BytesIO(file_bytes)) as pdf:
-            texto = " ".join((p.extract_text() or "") for p in pdf.pages[:3])
-        # Número da NF: campo "Número da Nota Fiscal\n{numero}"
-        nf = None
+        import io, re as _re
+        from pdfminer.high_level import extract_text as _pdf_extract_text
+        texto = _pdf_extract_text(io.BytesIO(file_bytes))
         NF_PADROES = [
             _re.compile(r'N[uú]mero\s+da\s+Nota\s+Fiscal\s*[\n:]*\s*(\d{3,6})', _re.IGNORECASE),
             _re.compile(r'nota\s+fiscal[^\d]{0,20}(\d{3,6})', _re.IGNORECASE),
             _re.compile(r'\bNFS?-?e\b[^\d]{0,20}(\d{3,6})', _re.IGNORECASE),
             _re.compile(r'\bNF[.\s\-]*n[°º]?[.\s]*(\d{3,6})', _re.IGNORECASE),
         ]
-        for pat in NF_PADROES:
-            m = pat.search(texto)
-            if m:
-                nf = m.group(1)
-                break
-        # Número da folha: "FOLHA DE REGISTRO: 1011..." ou "FOLHADEREGISTRO:1011..."
-        folha = None
         FOLHA_PADROES = [
             _re.compile(r'FOLHA\s*DE\s*REGISTRO\s*:?\s*(\d{8,})', _re.IGNORECASE),
             _re.compile(r'FOLHADEREGISTRO\s*:?\s*(\d{8,})', _re.IGNORECASE),
+            _re.compile(r'Folha\s*:\s*(\d{8,})', _re.IGNORECASE),
             _re.compile(r'N[°º]?\s*DA\s*FOLHA\s*:?\s*(\d{8,})', _re.IGNORECASE),
         ]
-        for pat in FOLHA_PADROES:
-            m = pat.search(texto)
-            if m:
-                folha = m.group(1)
-                break
+        nf    = next((m.group(1) for p in NF_PADROES    for m in [p.search(texto)] if m), None)
+        folha = next((m.group(1) for p in FOLHA_PADROES for m in [p.search(texto)] if m), None)
         return nf, folha
     except Exception:
         pass
