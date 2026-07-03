@@ -1372,7 +1372,10 @@ def api_realocar():
             orig = dict(orig)
             # Gestor só pode realocar seus próprios itens
             if role not in ("admin", "financeiro"):
-                if (orig.get("gestor") or "").upper() != nome.upper():
+                gestor = (orig.get("gestor") or "").upper().strip()
+                nome_u = nome.upper().strip()
+                # aceita se gestor==nome completo, ou se o nome do gestor está no nome do usuário
+                if gestor not in nome_u and nome_u not in gestor:
                     continue
             # Marca original como realocada
             conn.execute(
@@ -1427,7 +1430,9 @@ def api_cancelar_provisao():
             if not orig:
                 continue
             if role not in ("admin", "financeiro"):
-                if (orig["gestor"] or "").upper() != nome.upper():
+                gestor = (orig["gestor"] or "").upper().strip()
+                nome_u = nome.upper().strip()
+                if gestor not in nome_u and nome_u not in gestor:
                     continue
             conn.execute(
                 "UPDATE medicoes SET status_prov='cancelada', updated_at=? WHERE id=?",
