@@ -1306,6 +1306,10 @@ def api_provisoes_pendentes():
     """
     hoje = datetime.now()
     mes_atual = hoje.strftime("%Y-%m")
+    # Mês anterior = exclui do modal (ainda em processamento)
+    # Mostra apenas itens com 2+ meses de atraso
+    from dateutil.relativedelta import relativedelta
+    mes_limite = (hoje - relativedelta(months=2)).strftime("%Y-%m")
     role = session.get("role", "")
     nome = session.get("nome", session.get("user", ""))
 
@@ -1315,13 +1319,13 @@ def api_provisoes_pendentes():
                    (SELECT COALESCE(SUM(mf.valor),0) FROM medicao_folhas mf WHERE mf.medicao_id = m.id) AS vl_medido,
                    (SELECT COUNT(*) FROM medicao_folhas mf WHERE mf.medicao_id = m.id) AS n_folhas
             FROM medicoes m
-            WHERE m.comp < ?
+            WHERE m.comp <= ?
               AND m.comp != ''
               AND m.delete_requested = 0
               AND m.provisao > 0
               AND (m.status_prov IS NULL OR m.status_prov = 'aberta')
             ORDER BY m.gestor, m.comp DESC, m.contrato_num, m.obra
-        """, (mes_atual,)).fetchall()
+        """, (mes_limite,)).fetchall()
 
     result = []
     for r in rows:
