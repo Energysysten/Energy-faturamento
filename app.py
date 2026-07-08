@@ -374,6 +374,50 @@ def login_required(f):
     return wrapper
 
 
+@app.route("/api/admin/fix-folhas-jul2026", methods=["POST"])
+@login_required
+def api_fix_folhas_jul2026():
+    if session.get("role") != "admin":
+        return jsonify({"erro": "Sem permissão"}), 403
+    FIXES = [
+        ("1011809376","4600027590","ANÁPOLIS",45816.19),
+        ("1011809380","4600027590","BARRO ALTO",6608.89),
+        ("1011809385","4600027590","GOIANÉSIA",16727.63),
+        ("1011809389","4600027590","ESTRELA DO NORTE",4734.83),
+        ("1011809392","4600027590","MARA ROSA",6448.11),
+        ("1011809395","4600027590","MINAÇU",3021.61),
+        ("1011809398","4600027590","URUAÇU",7625.69),
+        ("1011809402","4600027590","FORMOSA",2164.97),
+        ("1011809405","4600027590","MAMBAÍ",1873.74),
+        ("1011809410","4600027590","SÃO DOMINGOS",15420.20),
+        ("1011809413","4600027590","SÍTIO D'ABADIA",1873.74),
+        ("1011809416","4600027590","ÁGUAS LINDAS DE GOIÁS",10732.15),
+        ("1011809421","4600027590","CRISTALINA",22771.08),
+        ("1011809431","4600027590","LUZIÂNIA",22030.33),
+        ("1011809443","4600027590","ARAÇU",4135.29),
+        ("1011809448","4600027590","INHUMAS",21169.00),
+        ("1011809455","4600027590","SENADOR CANEDO",12990.94),
+        ("1011809461","4600027590","SILVÂNIA",5996.38),
+        ("1011809466","4600027590","TRINDADE",2164.97),
+        ("1011809474","4600027590","IPORÁ",3569.85),
+        ("1011809479","4600027590","BRITÂNIA",4329.94),
+        ("1011809483","4600027590","ITABERAÍ",9236.76),
+        ("1011809488","4600027590","ITAPURANGA",7756.48),
+        ("1011809492","4600027590","ITAGUARU",7645.19),
+        ("1011809496","4600027590","MATRINCHÃ",3021.61),
+        ("1011809500","4600027590","MOSSÂMEDES",7757.38),
+    ]
+    atualizadas = 0
+    with get_db() as conn:
+        for folha, contrato, municipio, valor in FIXES:
+            r = conn.execute("""UPDATE folhas_recebidas SET
+                n_contrato=?, municipio=?, valor_total=?,
+                periodo='2026-05', data_recebimento='2026-06-29',
+                status='Processado', fornecedor='ENERGY SYSTEN SERVICOS ESPECIALIZAD'
+                WHERE n_folha=?""", (contrato, municipio, valor, folha))
+            atualizadas += r.rowcount
+    return jsonify({"ok": True, "atualizadas": atualizadas})
+
 @app.route("/api/admin/export-seed", methods=["POST"])
 @login_required
 def api_export_seed():
