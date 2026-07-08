@@ -3007,6 +3007,10 @@ function renderRealocacaoTabela() {
         ${sp==='parcial'?`<div style="font-size:10px;color:#166534">Medido: R$ ${fmt(vlMedido)}</div><div style="font-size:10px;color:#9A3412">Saldo: R$ ${fmt(vlRestante)}</div>`:''}
       </td>
       <td><input type="number" class="realoc-valor-input" id="realoc-val-${idx}" value="${vlSugerido.toFixed(2)}" step="0.01" min="0" placeholder="0,00" title="${sp==='parcial'?'Sugerido: saldo restante':'Valor para realocar'}"></td>
+      <td>
+        <input type="text" id="realoc-cod-${idx}" value="${item.cod||''}" placeholder="Cód. CC" style="width:140px;padding:3px 6px;border:1px solid #ddd;border-radius:5px;font-size:11px;font-family:monospace;margin-bottom:3px;display:block">
+        <input type="text" id="realoc-obra-${idx}" value="${item.obra||''}" placeholder="Obra" style="width:140px;padding:3px 6px;border:1px solid #ddd;border-radius:5px;font-size:11px;margin-bottom:3px;display:block">
+      </td>
       <td><input type="text" class="realoc-obs-input" id="realoc-obs-${idx}" placeholder="Opcional..."></td>
       <td>
         <span id="realoc-acao-${idx}" class="badge" style="background:#f0f2f5;color:#666;font-size:10px">Aguardando</span>
@@ -3098,12 +3102,16 @@ async function confirmarRealocacao() {
   const items = idxs.map(idx => {
     const item = provisoesPendentes[idx];
     const valorInp = document.getElementById(`realoc-val-${idx}`);
-    const obsInp = document.getElementById(`realoc-obs-${idx}`);
+    const obsInp   = document.getElementById(`realoc-obs-${idx}`);
+    const codInp   = document.getElementById(`realoc-cod-${idx}`);
+    const obraInp  = document.getElementById(`realoc-obra-${idx}`);
     return {
-      medicao_id: item.id,
-      valor_novo: parseFloat(valorInp?.value || item.provisao) || Number(item.provisao),
+      medicao_id:  item.id,
+      valor_novo:  parseFloat(valorInp?.value || item.provisao) || Number(item.provisao),
       comp_destino: compDest,
-      obs: obsInp?.value?.trim() || ''
+      obs:   obsInp?.value?.trim()  || '',
+      cod:   codInp?.value?.trim()  || item.cod  || '',
+      obra:  obraInp?.value?.trim() || item.obra || ''
     };
   });
 
@@ -3523,6 +3531,7 @@ async function nfVincularManual(idx, nf){
               <th>Mês Origem</th>
               <th>Provisão Original</th>
               <th>Novo Valor (R$)</th>
+              <th>Cód. CC / Obra</th>
               <th>Observação</th>
               <th>Ação</th>
             </tr>

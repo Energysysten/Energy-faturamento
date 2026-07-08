@@ -1368,6 +1368,8 @@ def api_realocar():
             valor_novo = float(item.get("valor_novo") or 0)
             comp_dest  = (item.get("comp_destino") or "").strip()
             obs        = (item.get("obs") or "").strip()
+            cod_novo   = (item.get("cod") or "").strip()
+            obra_nova  = (item.get("obra") or "").strip()
             if not mid or not comp_dest:
                 continue
             orig = conn.execute("SELECT * FROM medicoes WHERE id=?", (mid,)).fetchone()
@@ -1381,6 +1383,9 @@ def api_realocar():
                 # aceita se gestor==nome completo, ou se o nome do gestor está no nome do usuário
                 if gestor not in nome_u and nome_u not in gestor:
                     continue
+            # Usa cod/obra do payload se informado, senão mantém do original
+            cod_final  = cod_novo  or orig.get("cod")  or ""
+            obra_final = obra_nova or orig.get("obra") or ""
             # Marca original como realocada
             conn.execute(
                 "UPDATE medicoes SET status_prov='realocada', updated_at=? WHERE id=?",
@@ -1397,7 +1402,7 @@ def api_realocar():
                 new_id,
                 orig["empresa"], orig["gestor"],
                 orig["contrato_num"], orig["contrato_nome"],
-                orig["obra"], orig["cod"], comp_dest,
+                obra_final, cod_final, comp_dest,
                 valor_novo, "previsto", "aberta",
                 nova_obs, now, now
             ))
