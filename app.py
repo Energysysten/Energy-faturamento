@@ -215,6 +215,14 @@ def init_db():
             conn.execute("ALTER TABLE medicoes ADD COLUMN status_prov TEXT DEFAULT 'aberta'")
         except Exception:
             pass
+        try:
+            conn.execute("ALTER TABLE medicoes ADD COLUMN dispensado_por TEXT")
+        except Exception:
+            pass
+        try:
+            conn.execute("ALTER TABLE medicoes ADD COLUMN dispensado_em TEXT")
+        except Exception:
+            pass
         # Migrar coluna empresa em contratos
         try:
             conn.execute("ALTER TABLE contratos ADD COLUMN empresa TEXT")
@@ -1596,11 +1604,26 @@ def api_dispensar_provisao():
                 if gestor not in nome_u and nome_u not in gestor:
                     continue
             conn.execute(
-                "UPDATE medicoes SET status_prov='dispensada', updated_at=? WHERE id=?",
-                (now, mid)
+                "UPDATE medicoes SET status_prov='dispensada', dispensado_por=?, dispensado_em=?, updated_at=? WHERE id=?",
+                (session["user"], now, now, mid)
             )
             dispensadas += 1
     return jsonify({"ok": True, "dispensadas": dispensadas})
+
+@app.route("/api/dispensadas")
+@login_required
+def api_historico_dispensadas():
+    """Lista provisões dispensadas para histórico."""
+    with get_db() as conn:
+        rows = conn.execute("""
+            SELECT gestor, obra, contrato_num, comp, provisao,
+                   dispensado_por, dispensado_em
+            FROM medicoes
+            WHERE status_prov = 'dispensada'
+            ORDER BY dispensado_em DESC
+            LIMIT 200
+        """).fetchall()
+    return jsonify([dict(r) for r in rows])
 
 @app.route("/api/realocacoes")
 @login_required

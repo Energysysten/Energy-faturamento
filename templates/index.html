@@ -3207,6 +3207,33 @@ async function dispensarSelecionadas() {
   await verificarProvisoespendentes();
 }
 
+async function toggleDispensadas() {
+  const sec = document.getElementById('realoc-disp-section');
+  sec.style.display = sec.style.display === 'none' ? 'block' : 'none';
+  if(sec.style.display === 'none') return;
+  const cont = document.getElementById('realoc-disp');
+  cont.innerHTML = '<p style="color:#999;font-size:13px">Carregando...</p>';
+  try {
+    const r = await fetch('/api/dispensadas');
+    const rows = await r.json();
+    if(!rows.length) { cont.innerHTML = '<div class="empty" style="padding:.5rem 0">Nenhuma provisão dispensada.</div>'; return; }
+    cont.innerHTML = `<div style="overflow-x:auto"><table>
+      <thead><tr><th>Gestor</th><th>Obra</th><th>Contrato</th><th>Competência</th><th>Provisão (R$)</th><th>Dispensado por</th><th>Quando</th></tr></thead>
+      <tbody>${rows.map(r => `<tr>
+        <td>${r.gestor||'-'}</td>
+        <td>${r.obra||'-'}</td>
+        <td>${r.contrato_num||'-'}</td>
+        <td>${r.comp||'-'}</td>
+        <td style="text-align:right">${fmt(r.provisao||0)}</td>
+        <td>${r.dispensado_por||'-'}</td>
+        <td style="font-size:11px;color:#6b7280">${r.dispensado_em ? r.dispensado_em.substring(0,16).replace('T',' ') : '-'}</td>
+      </tr>`).join('')}
+      </tbody></table></div>`;
+  } catch(e) {
+    cont.innerHTML = '<p style="color:red">Erro ao carregar.</p>';
+  }
+}
+
 async function toggleHistorico() {
   const sec = document.getElementById('realoc-hist-section');
   historicoAberto = !historicoAberto;
@@ -3573,12 +3600,18 @@ async function nfVincularManual(idx, nf){
         <div style="font-size:13px;font-weight:700;color:#444;margin-bottom:10px">🕓 Histórico de realocações</div>
         <div id="realoc-hist"></div>
       </div>
+      <!-- Histórico de dispensadas -->
+      <div id="realoc-disp-section" style="margin-top:20px;border-top:1px solid #e5e7eb;padding-top:16px;display:none">
+        <div style="font-size:13px;font-weight:700;color:#92400E;margin-bottom:10px">👁 Provisões dispensadas</div>
+        <div id="realoc-disp"></div>
+      </div>
     </div>
 
     <div class="realoc-footer">
       <div class="realoc-footer-stats" id="realoc-footer-stats"></div>
       <div class="realoc-footer-actions">
         <button class="btn" onclick="toggleHistorico()">🕓 Histórico</button>
+        <button class="btn" onclick="toggleDispensadas()" style="background:#FEF3C7;color:#92400E;border-color:#F59E0B">👁 Dispensadas</button>
         {% if role in ['admin','financeiro','engenharia'] %}
         <button class="btn" onclick="dispensarSelecionadas()" id="btn-dispensar-sel" disabled style="background:#F59E0B;color:#fff;border-color:#F59E0B">👁 Dispensar selecionadas</button>
         <button class="btn danger" onclick="cancelarSelecionadas()" id="btn-cancelar-sel" disabled>⛔ Cancelar selecionadas</button>
