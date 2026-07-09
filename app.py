@@ -1446,7 +1446,7 @@ def api_provisoes_pendentes():
               AND m.comp != ''
               AND m.delete_requested = 0
               AND m.provisao > 0
-              AND (m.status_prov IS NULL OR m.status_prov = 'aberta')
+              AND (m.status_prov IS NULL OR m.status_prov NOT IN ('realocada','cancelada','dispensada'))
             ORDER BY m.gestor, m.comp DESC, m.contrato_num, m.obra
         """, (mes_limite,)).fetchall()
 
@@ -1572,6 +1572,35 @@ def api_cancelar_provisao():
             )
             canceladas += 1
     return jsonify({"ok": True, "canceladas": canceladas})
+
+@app.route("/api/dispensar-provisao", methods=["POST"])
+@login_required
+def api_dispensar_provisao():
+    """Marca provisões como dispensadas (revisadas, sem necessidade de realocação)."""
+    role = session.get("role", "")
+    nome = session.get("nome", session.get("user", ""))
+    if role not in ("admin", "financeiro", "engenharia"):
+        return jsonify({"erro": "Sem permissão"}), 403
+    b = request.json or {}
+    ids = b.get("ids", [])
+    now = datetime.now().isoformat()
+    dispensadas = 0
+    with get_db() as conn:
+        for mid in ids:
+            orig = conn.execute("SELECT gestor FROM medicoes WHERE id=?", (mid,)).fetchone()
+            if not orig:
+                continue
+            if role not in ("admin", "financeiro"):
+                gestor = (orig["gestor"] or "").upper().strip()
+                nome_u = nome.upper().strip()
+                if gestor not in nome_u and nome_u not in gestor:
+                    continue
+            conn.execute(
+                "UPDATE medicoes SET status_prov='dispensada', updated_at=? WHERE id=?",
+                (now, mid)
+            )
+            dispensadas += 1
+    return jsonify({"ok": True, "dispensadas": dispensadas})
 
 @app.route("/api/realocacoes")
 @login_required

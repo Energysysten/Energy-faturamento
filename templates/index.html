@@ -3074,8 +3074,10 @@ function atualizarRealocBtns() {
   const idxs = getCheckedIdxs();
   const btnR = document.getElementById('btn-confirmar-realoc');
   const btnC = document.getElementById('btn-cancelar-sel');
+  const btnD = document.getElementById('btn-dispensar-sel');
   if(btnR) btnR.disabled = idxs.length === 0;
   if(btnC) btnC.disabled = idxs.length === 0;
+  if(btnD) btnD.disabled = idxs.length === 0;
   const countEl = document.getElementById('realoc-count-sel');
   countEl.textContent = idxs.length > 0 ? `${idxs.length} selecionada${idxs.length>1?'s':''}` : '';
 }
@@ -3175,6 +3177,31 @@ async function cancelarSelecionadas() {
     if(row) row.classList.add('cancelar-linha');
     const acao = document.getElementById(`realoc-acao-${idx}`);
     if(acao) { acao.textContent = '⛔ Cancelada'; acao.style.background='#F3F4F6'; acao.style.color='#6B7280'; }
+  });
+  await load();
+  await verificarProvisoespendentes();
+}
+
+async function dispensarSelecionadas() {
+  const idxs = getCheckedIdxs();
+  if(!idxs.length) return;
+  const nomes = idxs.map(i => provisoesPendentes[i]?.obra?.substring(0,30)).join(', ');
+  if(!confirm(`Dispensar ${idxs.length} provisão(ões)? Elas deixarão de aparecer como pendentes.\n\n${nomes}`)) return;
+
+  const ids = idxs.map(idx => provisoesPendentes[idx]?.id).filter(Boolean);
+  const r = await fetch('/api/dispensar-provisao', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ids})
+  });
+  const res = await r.json();
+  if(!r.ok || res.erro) { toast('Erro: ' + (res.erro||'falha')); return; }
+  toast(`👁 ${res.dispensadas} provisão(ões) dispensada(s).`);
+  idxs.forEach(idx => {
+    const row = document.getElementById(`realoc-row-${idx}`);
+    if(row) row.classList.add('cancelar-linha');
+    const acao = document.getElementById(`realoc-acao-${idx}`);
+    if(acao) { acao.textContent = '👁 Dispensada'; acao.style.background='#FEF3C7'; acao.style.color='#92400E'; }
   });
   await load();
   await verificarProvisoespendentes();
@@ -3553,6 +3580,7 @@ async function nfVincularManual(idx, nf){
       <div class="realoc-footer-actions">
         <button class="btn" onclick="toggleHistorico()">🕓 Histórico</button>
         {% if role in ['admin','financeiro','engenharia'] %}
+        <button class="btn" onclick="dispensarSelecionadas()" id="btn-dispensar-sel" disabled style="background:#F59E0B;color:#fff;border-color:#F59E0B">👁 Dispensar selecionadas</button>
         <button class="btn danger" onclick="cancelarSelecionadas()" id="btn-cancelar-sel" disabled>⛔ Cancelar selecionadas</button>
         <button class="btn primary" onclick="confirmarRealocacao()" id="btn-confirmar-realoc" disabled>✅ Realocar selecionadas</button>
         {% endif %}
