@@ -374,6 +374,72 @@ def login_required(f):
     return wrapper
 
 
+@app.route("/api/admin/import-jun2026-7696", methods=["POST"])
+@login_required
+def api_import_jun2026_7696():
+    if session.get("role") != "admin":
+        return jsonify({"erro": "Sem permissão"}), 403
+    FOLHAS = [
+        ("1011974296","4600027696",3612.85,"GOIANIA"),
+        ("1011974297","4600027696",6164.04,"ANAPOLIS"),
+        ("1011974298","4600027696",31423.77,"ANAPOLIS"),
+        ("1011974299","4600027696",3612.85,"GOIANIA"),
+        ("1011974302","4600027696",3614.28,"GOIANIA"),
+        ("1011974304","4600027696",3614.28,"GOIANIA"),
+        ("1011974305","4600027696",3612.85,"GOIANIA"),
+        ("1011974306","4600027696",3612.85,"GOIANIA"),
+        ("1011974307","4600027696",3612.85,"GOIANIA"),
+        ("1011974308","4600027696",3612.85,"GOIANIA"),
+        ("1011974309","4600027696",3612.85,"GOIANIA"),
+        ("1011974310","4600027696",5237.25,"FORMOSA"),
+        ("1011974311","4600027696",3053.51,"IPORA"),
+        ("1011974312","4600027696",699.60,"IPORA"),
+        ("1011974313","4600027696",56344.65,"IPORA"),
+        ("1011974314","4600027696",17627.97,"LUZIANIA"),
+        ("1011974315","4600027696",731.81,"SAO LUIZ DE MONTES BELOS"),
+        ("1011974316","4600027696",1209.81,"SAO LUIZ DE MONTES BELOS"),
+        ("1011974317","4600027696",720.22,"SAO LUIZ DE MONTES BELOS"),
+        ("1011974318","4600027696",957.28,"SAO LUIZ DE MONTES BELOS"),
+        ("1011974320","4600027696",1504.85,"SAO LUIZ DE MONTES BELOS"),
+        ("1011974321","4600027696",914.76,"SAO LUIZ DE MONTES BELOS"),
+        ("1011974322","4600027696",13068.24,"SAO LUIZ DE MONTES BELOS"),
+        ("1011974323","4600027696",1167.29,"SAO LUIZ DE MONTES BELOS"),
+        ("1011974324","4600027696",828.44,"SAO LUIZ DE MONTES BELOS"),
+        ("1011974325","4600027696",2972.34,"SAO LUIZ DE MONTES BELOS"),
+        ("1011974326","4600027696",2664.41,"SAO LUIZ DE MONTES BELOS"),
+        ("1011974327","4600027696",1225.27,"SAO LUIZ DE MONTES BELOS"),
+        ("1011974328","4600027696",778.19,"SAO LUIZ DE MONTES BELOS"),
+        ("1011974329","4600027696",1019.12,"SAO LUIZ DE MONTES BELOS"),
+        ("1011974330","4600027696",3612.85,"GOIANIA"),
+        ("1011974331","4600027696",2933.64,"IPORA"),
+        ("1011974332","4600027696",59855.09,"SAO LUIZ DE MONTES BELOS"),
+        ("1011974333","4600027696",2184.14,"SAO LUIZ DE MONTES BELOS"),
+        ("1011974334","4600027696",1369.79,"IPORA"),
+        ("1011974335","4600027696",2739.58,"IPORA"),
+        ("1011974884","4600027696",470.27,"IPORA"),
+        ("1011974885","4600027696",583.65,"SAO LUIZ DE MONTES BELOS"),
+        ("1011974886","4600027696",271.85,"SAO LUIZ DE MONTES BELOS"),
+        ("1011974887","4600027696",117.24,"SAO LUIZ DE MONTES BELOS"),
+        ("1011974888","4600027696",1743.45,"SAO LUIZ DE MONTES BELOS"),
+    ]
+    inseridas = atualizadas = 0
+    with get_db() as conn:
+        for folha, contrato, valor, municipio in FOLHAS:
+            existe = conn.execute("SELECT id FROM folhas_recebidas WHERE n_folha=?", (folha,)).fetchone()
+            if existe:
+                conn.execute("""UPDATE folhas_recebidas SET n_contrato=?,valor_total=?,municipio=?,
+                    periodo='2026-06',data_recebimento='2026-07-08',status='Processado',
+                    fornecedor='ENERGY SYSTEN SERVICOS ESPECIALIZAD' WHERE n_folha=?""",
+                    (contrato, valor, municipio, folha))
+                atualizadas += 1
+            else:
+                conn.execute("""INSERT INTO folhas_recebidas(id,n_folha,n_contrato,valor_total,municipio,
+                    periodo,data_recebimento,status,fornecedor)
+                    VALUES(?,?,?,?,?,'2026-06','2026-07-08','Processado','ENERGY SYSTEN SERVICOS ESPECIALIZAD')""",
+                    (str(uuid.uuid4()), folha, contrato, valor, municipio))
+                inseridas += 1
+    return jsonify({"ok": True, "inseridas": inseridas, "atualizadas": atualizadas})
+
 @app.route("/api/admin/fix-folhas-jul2026", methods=["POST"])
 @login_required
 def api_fix_folhas_jul2026():
