@@ -668,6 +668,19 @@ def api_add_folha_link():
         ).fetchone()
         if existing:
             return jsonify({"erro": "Folha já vinculada a esta obra"}), 409
+        # Valida que o total de rateios não ultrapassa o valor_total da folha
+        folha_row = conn.execute(
+            "SELECT valor_total FROM folhas_recebidas WHERE n_folha=?", (n_folha,)
+        ).fetchone()
+        if folha_row and folha_row[0]:
+            total_ja = conn.execute(
+                "SELECT COALESCE(SUM(valor),0) FROM medicao_folhas WHERE n_folha=?", (n_folha,)
+            ).fetchone()[0]
+            if total_ja + valor > folha_row[0] + 0.01:
+                restante = folha_row[0] - total_ja
+                def fmt(v):
+                    return f"R$ {v:,.2f}".replace(",","X").replace(".",",").replace("X",".")
+                return jsonify({"erro": f"Valor excede o saldo da folha. Restante disponível: {fmt(restante)}"}), 400
         conn.execute(
             "INSERT INTO medicao_folhas(id,medicao_id,n_folha,valor,periodo,vinculado_em) VALUES(?,?,?,?,?,?)",
             (link_id, medicao_id, n_folha, valor, periodo, now)
