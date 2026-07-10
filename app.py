@@ -1581,6 +1581,51 @@ def api_cancelar_provisao():
             canceladas += 1
     return jsonify({"ok": True, "canceladas": canceladas})
 
+@app.route("/api/admin/fix-duplicados", methods=["POST"])
+@login_required
+def api_fix_duplicados():
+    """Remove vínculos duplicados: mantém os mais antigos até o valor_total da folha."""
+    role = session.get("role", "")
+    if role not in ("admin", "financeiro"):
+        return jsonify({"erro": "Sem permissão"}), 403
+    removidos = 0
+    folhas_afetadas = []
+    with get_db() as conn:
+        excessos = conn.execute("""
+            SELECT mf.n_folha, fr.valor_total, SUM(mf.valor) as total_rateado, COUNT(*) as qtd
+            FROM medicao_folhas mf
+            JOIN folhas_recebidas fr ON fr.n_folha = mf.n_folha
+            WHERE fr.valor_total > 0
+            GROUP BY mf.n_folha
+            HAVING SUM(mf.valor) > fr.valor_total + 0.01
+        """).fetchall()
+        for n_folha, valor_total, total_rateado, qtd in excessos:
+            links = conn.execute("""
+                SELECT mf.id, mf.medicao_id, mf.valor
+                FROM medicao_folhas mf
+                WHERE mf.n_folha = ?
+                ORDER BY mf.vinculado_em ASC
+            """, (n_folha,)).fetchall()
+            acumulado = 0.0
+            removidos_folha = []
+            for lid, mid, lvalor in links:
+                if acumulado + lvalor <= valor_total + 0.01:
+                    acumulado += lvalor
+                else:
+                    conn.execute("DELETE FROM medicao_folhas WHERE id=?", (lid,))
+                    removidos += 1
+                    removidos_folha.append(lid)
+            # Recalcula medicao nas medicoes afetadas
+            mids_afetados = set(lk[1] for lk in links)
+            for mid in mids_afetados:
+                novo_total = conn.execute(
+                    "SELECT COALESCE(SUM(valor),0) FROM medicao_folhas WHERE medicao_id=?", (mid,)
+                ).fetchone()[0]
+                conn.execute("UPDATE medicoes SET medicao=? WHERE id=?", (novo_total, mid))
+            if removidos_folha:
+                folhas_afetadas.append({"folha": n_folha, "removidos": len(removidos_folha)})
+    return jsonify({"ok": True, "removidos": removidos, "folhas": folhas_afetadas})
+
 @app.route("/api/dispensar-provisao", methods=["POST"])
 @login_required
 def api_dispensar_provisao():
