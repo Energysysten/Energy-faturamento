@@ -1584,7 +1584,10 @@ def api_cancelar_provisao():
 @app.route("/api/admin/fix-duplicados", methods=["POST"])
 @login_required
 def api_fix_duplicados():
-    """Remove vínculos duplicados: mantém os mais antigos até o valor_total da folha."""
+    """Remove vínculos duplicados com lógica em duas etapas:
+    1. Mesma medição vinculada 2x à mesma folha → mantém o mais recente (valor correto)
+    2. Múltiplas medições somando > valor_total → remove as mais recentes até caber
+    """
     role = session.get("role", "")
     if role not in ("admin", "financeiro"):
         return jsonify({"erro": "Sem permissão"}), 403
@@ -1592,38 +1595,59 @@ def api_fix_duplicados():
     folhas_afetadas = []
     with get_db() as conn:
         excessos = conn.execute("""
-            SELECT mf.n_folha, fr.valor_total, SUM(mf.valor) as total_rateado, COUNT(*) as qtd
+            SELECT mf.n_folha, fr.valor_total
             FROM medicao_folhas mf
             JOIN folhas_recebidas fr ON fr.n_folha = mf.n_folha
             WHERE fr.valor_total > 0
             GROUP BY mf.n_folha
             HAVING SUM(mf.valor) > fr.valor_total + 0.01
         """).fetchall()
-        for n_folha, valor_total, total_rateado, qtd in excessos:
+        for n_folha, valor_total in excessos:
+            removidos_folha = 0
+            # Passo 1: remove duplicatas exatas (mesma medicao_id + n_folha),
+            # mantendo o registro mais recente (vinculado_em maior) para cada medicao
+            dups = conn.execute("""
+                SELECT medicao_id, COUNT(*) as cnt
+                FROM medicao_folhas WHERE n_folha=?
+                GROUP BY medicao_id HAVING cnt > 1
+            """, (n_folha,)).fetchall()
+            for mid, cnt in dups:
+                # Mantém o mais recente, remove os anteriores
+                ids_antigos = conn.execute("""
+                    SELECT id FROM medicao_folhas
+                    WHERE n_folha=? AND medicao_id=?
+                    ORDER BY vinculado_em ASC
+                    LIMIT ?
+                """, (n_folha, mid, cnt - 1)).fetchall()
+                for (lid,) in ids_antigos:
+                    conn.execute("DELETE FROM medicao_folhas WHERE id=?", (lid,))
+                    removidos += 1
+                    removidos_folha += 1
+
+            # Passo 2: verifica se ainda está acima do valor_total após passo 1
             links = conn.execute("""
-                SELECT mf.id, mf.medicao_id, mf.valor
-                FROM medicao_folhas mf
-                WHERE mf.n_folha = ?
-                ORDER BY mf.vinculado_em ASC
+                SELECT id, medicao_id, valor FROM medicao_folhas
+                WHERE n_folha=? ORDER BY vinculado_em ASC
             """, (n_folha,)).fetchall()
             acumulado = 0.0
-            removidos_folha = []
             for lid, mid, lvalor in links:
                 if acumulado + lvalor <= valor_total + 0.01:
                     acumulado += lvalor
                 else:
                     conn.execute("DELETE FROM medicao_folhas WHERE id=?", (lid,))
                     removidos += 1
-                    removidos_folha.append(lid)
-            # Recalcula medicao nas medicoes afetadas
-            mids_afetados = set(lk[1] for lk in links)
-            for mid in mids_afetados:
+                    removidos_folha += 1
+
+            # Recalcula medicao em todas as medicoes afetadas
+            mids = set(lk[1] for lk in links)
+            for mid in mids:
                 novo_total = conn.execute(
                     "SELECT COALESCE(SUM(valor),0) FROM medicao_folhas WHERE medicao_id=?", (mid,)
                 ).fetchone()[0]
                 conn.execute("UPDATE medicoes SET medicao=? WHERE id=?", (novo_total, mid))
+
             if removidos_folha:
-                folhas_afetadas.append({"folha": n_folha, "removidos": len(removidos_folha)})
+                folhas_afetadas.append({"folha": n_folha, "removidos": removidos_folha})
     return jsonify({"ok": True, "removidos": removidos, "folhas": folhas_afetadas})
 
 @app.route("/api/dispensar-provisao", methods=["POST"])
