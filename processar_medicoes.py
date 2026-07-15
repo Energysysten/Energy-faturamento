@@ -278,12 +278,14 @@ def extrair_dados_xls(caminho_xls: Path) -> list[dict]:
     sheet_name = "DADOS" if "DADOS" in wb.sheetnames else wb.sheetnames[0]
     ws = wb[sheet_name]
 
-    # Detecta linha de cabeçalho: primeira linha que contém "FOLHA" ou "CONTRATO"
+    # Detecta linha de cabeçalho: primeira linha que contém "FOLHA", "CONTRATO"
+    # ou variações do arquivo "SERVIÇOS POR FOLHA" (ex: "Nº de documento")
+    MARCADORES_HEADER = {"FOLHA", "CONTRATO", "Nº DE DOCUMENTO", "NO DE DOCUMENTO", "NUMERO DE DOCUMENTO", "DOCUMENTO"}
     header_row  = None
     header_cols = {}
     for row in ws.iter_rows():
         row_vals = [str(c.value).strip().upper() if c.value else "" for c in row]
-        if "FOLHA" in row_vals or "CONTRATO" in row_vals:
+        if any(m in row_vals for m in MARCADORES_HEADER):
             header_row = row[0].row
             for idx, val in enumerate(row_vals):
                 header_cols[val] = idx  # mapeia nome → índice 0-based
@@ -300,7 +302,7 @@ def extrair_dados_xls(caminho_xls: Path) -> list[dict]:
                 return header_cols[nome]
         return None
 
-    idx_folha      = col("FOLHA", "FOLHA DE MEDIÇÃO", "NR FOLHA")
+    idx_folha      = col("FOLHA", "FOLHA DE MEDIÇÃO", "NR FOLHA", "Nº DE DOCUMENTO", "NO DE DOCUMENTO", "NUMERO DE DOCUMENTO", "DOCUMENTO")
     idx_contrato   = col("CONTRATO", "NR CONTRATO", "NÚMERO CONTRATO", "CONTRATO BÁSICO", "CONTRATO BASICO")
     idx_competenca = col("COMPETÊNCIA", "COMPETENCIA", "MÊS", "MES")
     idx_municipio  = col("MUNICÍPIO", "MUNICIPIO", "CIDADE", "LOCAL")
@@ -371,7 +373,16 @@ def extrair_dados_xls(caminho_xls: Path) -> list[dict]:
             "tipo_origem":    "XLS",
         })
 
-    return registros
+    # Agrupa por folha somando valores (um folha pode ter múltiplas linhas de serviço)
+    agrupado = {}
+    for r in registros:
+        chave = r["folha"]
+        if chave not in agrupado:
+            agrupado[chave] = r.copy()
+        else:
+            agrupado[chave]["valor"] += r["valor"]
+            # Preserva municipio/competência do primeiro registro
+    return list(agrupado.values())
 
 
 # ── Atualização da planilha ──────────────────────────────────────────────────
