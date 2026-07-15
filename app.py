@@ -382,10 +382,17 @@ def login_required(f):
     return wrapper
 
 
+def _check_admin_key():
+    """Retorna True se autenticado via API key ou sessão de admin."""
+    api_key = request.headers.get("X-API-Key", "")
+    if api_key:
+        return bool(SYNC_API_KEY and api_key == SYNC_API_KEY)
+    return "user" in session and session.get("role") == "admin"
+
+
 @app.route("/api/admin/preview-desvincular-maio2026", methods=["GET"])
-@login_required
 def api_preview_desvincular_maio2026():
-    if session.get("role") != "admin":
+    if not _check_admin_key():
         return jsonify({"erro": "Sem permissão"}), 403
     with get_db() as conn:
         rows = conn.execute("""
@@ -410,9 +417,8 @@ def api_preview_desvincular_maio2026():
 
 
 @app.route("/api/admin/desvincular-maio2026", methods=["POST"])
-@login_required
 def api_desvincular_maio2026():
-    if session.get("role") != "admin":
+    if not _check_admin_key():
         return jsonify({"erro": "Sem permissão"}), 403
     with get_db() as conn:
         # Busca todos os medicao_ids afetados para resetar medicao
