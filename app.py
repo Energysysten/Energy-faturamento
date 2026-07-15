@@ -382,6 +382,65 @@ def login_required(f):
     return wrapper
 
 
+@app.route("/api/admin/preview-desvincular-maio2026", methods=["GET"])
+@login_required
+def api_preview_desvincular_maio2026():
+    if session.get("role") != "admin":
+        return jsonify({"erro": "Sem permissão"}), 403
+    with get_db() as conn:
+        rows = conn.execute("""
+            SELECT mf.n_folha, fr.valor_total, fr.municipio, fr.fornecedor,
+                   COUNT(mf.id) as qtd_vinculos, SUM(mf.valor) as total_vinculado
+            FROM medicao_folhas mf
+            JOIN folhas_recebidas fr ON fr.n_folha = mf.n_folha
+            WHERE fr.periodo = '2026-05'
+            GROUP BY mf.n_folha
+            ORDER BY mf.n_folha
+        """).fetchall()
+        total_vinculos = sum(r[4] for r in rows)
+    return jsonify({
+        "folhas": [
+            {"n_folha": r[0], "valor_total": r[1], "municipio": r[2],
+             "fornecedor": r[3], "qtd_vinculos": r[4], "total_vinculado": r[5]}
+            for r in rows
+        ],
+        "total_folhas": len(rows),
+        "total_vinculos": total_vinculos
+    })
+
+
+@app.route("/api/admin/desvincular-maio2026", methods=["POST"])
+@login_required
+def api_desvincular_maio2026():
+    if session.get("role") != "admin":
+        return jsonify({"erro": "Sem permissão"}), 403
+    with get_db() as conn:
+        # Busca todos os medicao_ids afetados para resetar medicao
+        medicao_ids = [r[0] for r in conn.execute("""
+            SELECT DISTINCT mf.medicao_id
+            FROM medicao_folhas mf
+            JOIN folhas_recebidas fr ON fr.n_folha = mf.n_folha
+            WHERE fr.periodo = '2026-05'
+        """).fetchall()]
+
+        resultado = conn.execute("""
+            DELETE FROM medicao_folhas
+            WHERE n_folha IN (
+                SELECT n_folha FROM folhas_recebidas WHERE periodo = '2026-05'
+            )
+        """)
+        removidos = resultado.rowcount
+
+        # Recalcula campo medicao para as provisões afetadas
+        for mid in medicao_ids:
+            novo = conn.execute(
+                "SELECT COALESCE(SUM(valor),0) FROM medicao_folhas WHERE medicao_id=?", (mid,)
+            ).fetchone()[0]
+            conn.execute("UPDATE medicoes SET medicao=? WHERE id=?", (novo, mid))
+
+    return jsonify({"ok": True, "vinculos_removidos": removidos, "medicoes_recalculadas": len(medicao_ids)})
+
+
 @app.route("/api/admin/import-jun2026-7696", methods=["POST"])
 @login_required
 def api_import_jun2026_7696():
