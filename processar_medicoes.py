@@ -46,6 +46,10 @@ TOKEN            = BASE_DIR / "token.json"
 LOG_FILE         = BASE_DIR / "processamento.log"
 LABEL_PROCESSADO = "Medicao-Processada"
 
+# URL da API do Render (deixe vazio para desativar o sync automático)
+RENDER_API_URL  = os.environ.get("RENDER_API_URL", "https://faturamento-9pbl.onrender.com")
+RENDER_API_KEY  = os.environ.get("SYNC_API_KEY", "")
+
 SCOPES = [
     "https://www.googleapis.com/auth/gmail.readonly",
     "https://www.googleapis.com/auth/gmail.modify",
@@ -430,6 +434,67 @@ def atualizar_planilha(dados: dict, nome_arquivo: str, data_recebimento: str):
     return True
 
 
+def sync_folha_render(dados: dict, nome_arquivo: str, data_recebimento: str):
+    """Envia a folha processada para o banco de dados do Render via API."""
+    if not RENDER_API_URL or not RENDER_API_KEY:
+        return
+
+    import urllib.request
+
+    # Converte data de DD/MM/YYYY para YYYY-MM-DD
+    try:
+        partes = data_recebimento.split("/")
+        data_iso = f"{partes[2]}-{partes[1]}-{partes[0]}"
+    except Exception:
+        data_iso = str(datetime.date.today())
+
+    # Constrói periodo no formato YYYY-MM
+    periodo = ""
+    try:
+        if dados.get("periodo_inicio"):
+            p = str(dados["periodo_inicio"])
+            if "/" in p:
+                parts = p.split("/")
+                if len(parts) == 3:
+                    periodo = f"{parts[2]}-{parts[1]}"
+                elif len(parts) == 2:
+                    periodo = f"{parts[1]}-{parts[0]}"
+            else:
+                periodo = p[:7]
+    except Exception:
+        pass
+
+    payload = json.dumps([{
+        "n_folha": str(dados["folha"]),
+        "n_contrato": str(dados.get("contrato", "")),
+        "valor_total": float(dados.get("valor", 0)),
+        "municipio": str(dados.get("municipio", "")),
+        "fornecedor": str(dados.get("fornecedor", "")),
+        "periodo": periodo,
+        "data_recebimento": data_iso,
+        "arquivo": nome_arquivo,
+        "status": "recebido",
+    }]).encode("utf-8")
+
+    try:
+        req = urllib.request.Request(
+            f"{RENDER_API_URL}/api/folhas/sync",
+            data=payload,
+            headers={
+                "Content-Type": "application/json",
+                "X-API-Key": RENDER_API_KEY,
+            },
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            resultado = json.loads(resp.read())
+            ins = resultado.get("inseridas", 0)
+            atu = resultado.get("atualizadas", 0)
+            log(f"  Render sync: inseridas={ins}, atualizadas={atu}")
+    except Exception as e:
+        log(f"  AVISO: falha ao sincronizar com Render: {e}")
+
+
 # ── Fluxo principal ──────────────────────────────────────────────────────────
 def main():
     ANEXOS_DIR.mkdir(exist_ok=True)
@@ -497,6 +562,7 @@ def main():
                         continue
                     if atualizar_planilha(dados, pdf_path.name, data_recebimento):
                         processados += 1
+                        sync_folha_render(dados, pdf_path.name, data_recebimento)
                 except Exception as e:
                     log(f"  ERRO ao processar PDF {pdf_path.name}: {e}")
 
@@ -511,6 +577,7 @@ def main():
                     for dados in lista:
                         if atualizar_planilha(dados, xls_path.name, data_recebimento):
                             processados += 1
+                            sync_folha_render(dados, xls_path.name, data_recebimento)
                 except Exception as e:
                     log(f"  ERRO ao processar XLS {xls_path.name}: {e}")
 

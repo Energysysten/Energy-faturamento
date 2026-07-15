@@ -761,11 +761,20 @@ def api_update_contrato(num):
                      (num, b.get("nome", ""), b.get("saldo", 0)))
     return jsonify({"ok": True})
 
+SYNC_API_KEY = os.environ.get("SYNC_API_KEY", "")
+
 @app.route("/api/folhas/sync", methods=["POST"])
-@login_required
 def api_folhas_sync():
-    if session.get("role") not in ("admin", "financeiro"):
-        return jsonify({"erro": "Sem permissão"}), 403
+    # Aceita autenticação por API key (para scripts externos) ou sessão web
+    api_key = request.headers.get("X-API-Key", "")
+    if api_key:
+        if not SYNC_API_KEY or api_key != SYNC_API_KEY:
+            return jsonify({"erro": "API key inválida"}), 403
+    else:
+        if "user" not in session:
+            return redirect(url_for("login_page"))
+        if session.get("role") not in ("admin", "financeiro"):
+            return jsonify({"erro": "Sem permissão"}), 403
     rows = request.json or []
     if not rows:
         return jsonify({"erro": "Nenhuma folha enviada"}), 400
