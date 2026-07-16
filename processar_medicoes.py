@@ -50,13 +50,6 @@ LABEL_PROCESSADO = "Medicao-Processada"
 RENDER_API_URL  = os.environ.get("RENDER_API_URL", "https://faturamento-9pbl.onrender.com")
 RENDER_API_KEY  = os.environ.get("SYNC_API_KEY", "")
 
-# Correções de período: folhas cuja data de início na planilha difere do mês de competência.
-# Adicione aqui sempre que uma folha precisar de correção manual de período.
-PERIODO_OVERRIDE = {
-    "1012047434": "2026-06",  # data início 26/05 mas compete em jun/2026
-    "1012038827": "2026-06",  # data início 26/05 mas compete em jun/2026
-    "1012038744": "2026-06",  # data início 26/05 mas compete em jun/2026
-}
 
 SCOPES = [
     "https://www.googleapis.com/auth/gmail.readonly",
@@ -629,31 +622,26 @@ def sync_planilha_completa_render():
         try:
             n_folha    = str(row[1]).strip().split(".")[0]
             n_contrato = str(int(float(row[2]))) if row[2] and str(row[2]).strip() not in ("", "nan") else ""
-            periodo    = ""
-            if row[3]:
-                try:
-                    if hasattr(row[3], "strftime"):
-                        periodo = row[3].strftime("%Y-%m")
-                    else:
-                        parts = str(row[3]).split("/")
-                        if len(parts) == 3:
-                            periodo = f"{parts[2]}-{parts[1]}"
-                except Exception:
-                    pass
+            # Período = data de recebimento - 30 dias (regra de competência)
             data_rec = ""
+            periodo = ""
             if row[0]:
                 try:
+                    from datetime import timedelta
                     if hasattr(row[0], "strftime"):
-                        data_rec = row[0].strftime("%Y-%m-%d")
+                        dt_rec = row[0]
                     else:
                         parts = str(row[0]).split("/")
-                        if len(parts) == 3:
-                            data_rec = f"{parts[2]}-{parts[1]}-{parts[0]}"
+                        from datetime import datetime as _dt
+                        dt_rec = _dt(int(parts[2]), int(parts[1]), int(parts[0])) if len(parts) == 3 else None
+                    if dt_rec:
+                        data_rec = dt_rec.strftime("%Y-%m-%d")
+                        dt_comp = dt_rec - timedelta(days=30)
+                        periodo = dt_comp.strftime("%Y-%m")
                 except Exception:
                     pass
             valor = float(row[7]) if row[7] else 0.0
-            # Aplica correção de período se necessário
-            periodo_final = PERIODO_OVERRIDE.get(n_folha, periodo)
+            periodo_final = periodo
             payload.append({
                 "n_folha": n_folha,
                 "n_contrato": n_contrato,
