@@ -50,6 +50,14 @@ LABEL_PROCESSADO = "Medicao-Processada"
 RENDER_API_URL  = os.environ.get("RENDER_API_URL", "https://faturamento-9pbl.onrender.com")
 RENDER_API_KEY  = os.environ.get("SYNC_API_KEY", "")
 
+# Correções de período: folhas cuja data de início na planilha difere do mês de competência.
+# Adicione aqui sempre que uma folha precisar de correção manual de período.
+PERIODO_OVERRIDE = {
+    "1012047434": "2026-06",  # data início 26/05 mas compete em jun/2026
+    "1012038827": "2026-06",  # data início 26/05 mas compete em jun/2026
+    "1012038744": "2026-06",  # data início 26/05 mas compete em jun/2026
+}
+
 SCOPES = [
     "https://www.googleapis.com/auth/gmail.readonly",
     "https://www.googleapis.com/auth/gmail.modify",
@@ -588,7 +596,100 @@ def main():
             ).execute()
 
     log(f"\nConcluído. {processados} folha(s) processada(s).")
+
+    # Sync completo da planilha com o Render
+    sync_planilha_completa_render()
+
     log("=" * 60)
+
+
+def sync_planilha_completa_render():
+    """Sincroniza todas as folhas da planilha local com o banco do Render."""
+    if not RENDER_API_URL or not RENDER_API_KEY:
+        return
+    if not PLANILHA.exists():
+        return
+
+    import urllib.request
+    import openpyxl as _opx
+
+    try:
+        wb = _opx.load_workbook(PLANILHA, read_only=True, data_only=True)
+        ws = wb["Medições"]
+        rows = list(ws.iter_rows(min_row=2, values_only=True))
+        wb.close()
+    except Exception as e:
+        log(f"  AVISO: não foi possível ler planilha para sync completo: {e}")
+        return
+
+    payload = []
+    for row in rows:
+        if not row[1]:
+            continue
+        try:
+            n_folha    = str(row[1]).strip().split(".")[0]
+            n_contrato = str(int(float(row[2]))) if row[2] and str(row[2]).strip() not in ("", "nan") else ""
+            periodo    = ""
+            if row[3]:
+                try:
+                    if hasattr(row[3], "strftime"):
+                        periodo = row[3].strftime("%Y-%m")
+                    else:
+                        parts = str(row[3]).split("/")
+                        if len(parts) == 3:
+                            periodo = f"{parts[2]}-{parts[1]}"
+                except Exception:
+                    pass
+            data_rec = ""
+            if row[0]:
+                try:
+                    if hasattr(row[0], "strftime"):
+                        data_rec = row[0].strftime("%Y-%m-%d")
+                    else:
+                        parts = str(row[0]).split("/")
+                        if len(parts) == 3:
+                            data_rec = f"{parts[2]}-{parts[1]}-{parts[0]}"
+                except Exception:
+                    pass
+            valor = float(row[7]) if row[7] else 0.0
+            # Aplica correção de período se necessário
+            periodo_final = PERIODO_OVERRIDE.get(n_folha, periodo)
+            payload.append({
+                "n_folha": n_folha,
+                "n_contrato": n_contrato,
+                "valor_total": valor,
+                "municipio": str(row[5] or ""),
+                "fornecedor": str(row[6] or ""),
+                "periodo": periodo_final,
+                "data_recebimento": data_rec,
+                "arquivo": str(row[8] or ""),
+                "status": str(row[9] or "recebido"),
+            })
+        except Exception:
+            continue
+
+    if not payload:
+        return
+
+    total_ins = total_atu = 0
+    for i in range(0, len(payload), 50):
+        lote = payload[i:i+50]
+        data = json.dumps(lote).encode("utf-8")
+        try:
+            req = urllib.request.Request(
+                f"{RENDER_API_URL}/api/folhas/sync",
+                data=data,
+                headers={"Content-Type": "application/json", "X-API-Key": RENDER_API_KEY},
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                r = json.loads(resp.read())
+                total_ins += r.get("inseridas", 0)
+                total_atu += r.get("atualizadas", 0)
+        except Exception as e:
+            log(f"  AVISO: falha no sync completo (lote {i//50+1}): {e}")
+
+    log(f"  Sync completo: {total_ins} inseridas, {total_atu} atualizadas no Render")
 
 
 if __name__ == "__main__":

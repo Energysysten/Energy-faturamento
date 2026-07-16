@@ -891,12 +891,19 @@ def api_folhas_sync():
                     "SELECT id FROM folhas_recebidas WHERE n_folha=?", (n_folha,)
                 ).fetchone()
                 if existe:
+                    # Preserva periodo existente se já estiver preenchido
+                    # (evita que sync automático desfaça correções manuais)
+                    periodo_novo = row.get("periodo", "")
+                    periodo_atual = conn.execute(
+                        "SELECT periodo FROM folhas_recebidas WHERE n_folha=?", (n_folha,)
+                    ).fetchone()
+                    periodo_final = (periodo_atual[0] or periodo_novo) if (periodo_atual and periodo_atual[0]) else periodo_novo
                     conn.execute(
                         """UPDATE folhas_recebidas SET
                             n_contrato=?, periodo=?, municipio=?, fornecedor=?,
                             valor_total=?, arquivo=?, data_recebimento=?, status=?, nf=?
                            WHERE n_folha=?""",
-                        (row.get("n_contrato",""), row.get("periodo",""),
+                        (row.get("n_contrato",""), periodo_final,
                          row.get("municipio",""), row.get("fornecedor",""),
                          row.get("valor_total",0), row.get("arquivo",""),
                          row.get("data_recebimento",""), row.get("status",""),
