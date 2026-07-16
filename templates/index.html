@@ -1123,7 +1123,9 @@ function calcMes(items, folhasArr, compFil){
   // folhas do período
   const folhasPer=compFil?folhasArr.filter(f=>f.periodo===compFil):folhasArr;
   const naoVinc=folhasPer.filter(f=>Number(f.valor_total||0)>0&&!items.some(it=>(it.folhas_vinculadas||[]).some(l=>l.n_folha===f.n_folha)));
-  return{prov,med,fat,naoVinc:naoVinc.length,vlNaoVinc:naoVinc.reduce((a,f)=>a+Number(f.valor_total||0),0),folhas:folhasPer};
+  // vlMedido = soma de valor_total de todas as folhas do período (vinculadas + não vinculadas)
+  const vlMedido=folhasPer.reduce((a,f)=>a+Number(f.valor_total||0),0);
+  return{prov,med,fat,naoVinc:naoVinc.length,vlNaoVinc:naoVinc.reduce((a,f)=>a+Number(f.valor_total||0),0),folhas:folhasPer,vlMedido};
 }
 
 function mesAnterior(comp){
@@ -1185,7 +1187,7 @@ function renderDashboard(){
     :folhasEmp.filter(f=>!dataEmp.some(d=>(d.folhas_vinculadas||[]).some(l=>l.n_folha===f.n_folha)));
   const vlNaoVinc=naoVincFolhas.reduce((a,f)=>a+Number(f.valor_total||0),0);
   const totalFaturado=cur.fat;
-  const totalMedido=cur.med;
+  const totalMedido=cur.vlMedido;
   const vlSemNF=Math.max(0,totalMedido-totalFaturado);
   const totalFolhas=cur.folhas.reduce((a,f)=>a+Number(f.valor_total||0),0);
 
@@ -1203,13 +1205,13 @@ function renderDashboard(){
     </div>
     <div class="geral-card">
       <div class="geral-label">Medido — ${rotulo}</div>
-      <div class="geral-val currency" style="color:#185FA5">R$ ${fmt(cur.med+cur.vlNaoVinc)}</div>
-      <div class="geral-sub">${cur.prov>0?Math.round((cur.med+cur.vlNaoVinc)/cur.prov*100):0}% da provisão${cur.vlNaoVinc>0?` · R$ ${fmt(cur.vlNaoVinc)} s/ obra`:''}</div>
+      <div class="geral-val currency" style="color:#185FA5">R$ ${fmt(cur.vlMedido)}</div>
+      <div class="geral-sub">${cur.prov>0?Math.round((cur.vlMedido)/cur.prov*100):0}% da provisão${cur.vlNaoVinc>0?` · R$ ${fmt(cur.vlNaoVinc)} s/ obra`:''}</div>
     </div>
     <div class="geral-card">
       <div class="geral-label">Faturado (NF) — ${rotulo}</div>
       <div class="geral-val currency" style="color:#166534">R$ ${fmt(cur.fat)}</div>
-      <div class="geral-sub">${(cur.med+cur.vlNaoVinc)>0?Math.round(cur.fat/(cur.med+cur.vlNaoVinc)*100):0}% do medido</div>
+      <div class="geral-sub">${(cur.vlMedido)>0?Math.round(cur.fat/(cur.vlMedido)*100):0}% do medido</div>
     </div>
     <div class="geral-card">
       <div class="geral-label">Folhas não vinculadas</div>
@@ -1223,7 +1225,7 @@ function renderDashboard(){
     const d=((a-b)/b*100);
     return`<span style="font-size:10px;color:${d>=0?'#3B6D11':'#A32D2D'};margin-left:4px">${d>=0?'▲':'▼'}${Math.abs(d).toFixed(0)}% vs ${compLabel(compComp)}</span>`;
   }
-  const totalMedReal=cur.med+cur.vlNaoVinc;
+  const totalMedReal=cur.vlMedido;
   const pctMed=cur.prov>0?Math.round(totalMedReal/cur.prov*100):0;
   const pctFat=totalMedReal>0?Math.round(cur.fat/totalMedReal*100):0;
   // Só exibe linha de KPIs detalhados se houver comparação ativa (evita repetição)
@@ -1232,10 +1234,10 @@ function renderDashboard(){
     kpisEl.style.display='grid';
     kpisEl.innerHTML=`
       <div class="metric"><div class="metric-label">Provisão</div><div class="metric-value currency" style="font-size:14px">R$ ${fmt(cur.prov)}</div><div class="metric-sub">${delta(cur.prov,cmp.prov)}</div></div>
-      <div class="metric"><div class="metric-label">Medido</div><div class="metric-value currency" style="font-size:14px;color:#185FA5">R$ ${fmt(totalMedReal)}</div><div class="metric-sub">${delta(totalMedReal,cmp.med+cmp.vlNaoVinc)}</div></div>
+      <div class="metric"><div class="metric-label">Medido</div><div class="metric-value currency" style="font-size:14px;color:#185FA5">R$ ${fmt(totalMedReal)}</div><div class="metric-sub">${delta(totalMedReal,cmp.vlMedido)}</div></div>
       <div class="metric"><div class="metric-label">Faturado (NF)</div><div class="metric-value currency" style="font-size:14px;color:#166534">R$ ${fmt(cur.fat)}</div><div class="metric-sub">${delta(cur.fat,cmp.fat)}</div></div>
       <div class="metric"><div class="metric-label">Folhas</div><div class="metric-value" style="font-size:14px">${cur.folhas.length}</div><div class="metric-sub">${delta(cur.folhas.length,cmp.folhas.length)}</div></div>
-      <div class="metric"><div class="metric-label">% Medido/Provisão</div><div class="metric-value" style="font-size:14px">${pctMed}%</div><div class="metric-sub">${cmp.prov>0?`vs ${Math.round((cmp.med+cmp.vlNaoVinc)/cmp.prov*100)}% em ${compLabel(compComp)}`:''}</div></div>
+      <div class="metric"><div class="metric-label">% Medido/Provisão</div><div class="metric-value" style="font-size:14px">${pctMed}%</div><div class="metric-sub">${cmp.prov>0?`vs ${Math.round((cmp.vlMedido)/cmp.prov*100)}% em ${compLabel(compComp)}`:''}</div></div>
     `;
   } else {
     kpisEl.style.display='none';
