@@ -686,6 +686,21 @@ EMPRESAS_INVALIDAS_GESTOR = {
     "ENERGY SYSTEN", "ENERGYSYSTEN", "ENERGY", "ENERGY SERVIÇOS ESPECIALIZADOS"
 }
 
+CONTRATO_EMPRESA = {
+    '4600019416': 'ENERGY SERVIÇOS',
+    '4600023515': 'ENERGY SERVIÇOS',
+    '4600027590': 'ENERGY SERVIÇOS',
+    '4600027599': 'ENERGY SERVIÇOS',
+    '4600027637': 'ENERGY CONSTRUÇÕES',
+    '4600027696': 'ENERGY CONSTRUÇÕES',
+}
+
+def _empresa_do_contrato(contrato_num, empresa_informada):
+    """Retorna a empresa correta baseada no contrato, ignorando o que foi informado."""
+    if contrato_num and str(contrato_num) in CONTRATO_EMPRESA:
+        return CONTRATO_EMPRESA[str(contrato_num)]
+    return empresa_informada
+
 def _validar_gestor(gestor):
     if not gestor:
         return gestor
@@ -702,6 +717,7 @@ def api_create():
     gestor_val = _validar_gestor(b.get("gestor"))
     if gestor_val is None:
         return jsonify({"erro": f"Gestor inválido: '{b.get('gestor')}'. Informe o nome de uma pessoa responsável."}), 400
+    empresa_val = _empresa_do_contrato(b.get("contrato_num"), b.get("empresa"))
     now = datetime.now().isoformat()
     id_ = str(uuid.uuid4())
     with get_db() as conn:
@@ -710,7 +726,7 @@ def api_create():
                 obra,cod,comp,provisao,medicao,pedido,nf,venc_nf,
                 retencao,impostos,status,obs,created_at,updated_at)
             VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-        """, (id_, b.get("empresa"), b.get("gestor"),
+        """, (id_, empresa_val, b.get("gestor"),
               b.get("contrato_num"), b.get("contrato_nome"),
               b.get("obra"), b.get("cod"), b.get("comp"),
               b.get("provisao", 0), b.get("medicao") or None,
@@ -727,6 +743,7 @@ def api_update(id):
         gestor_val = _validar_gestor(b.get("gestor"))
         if gestor_val is None:
             return jsonify({"erro": f"Gestor inválido: '{b.get('gestor')}'. Informe o nome de uma pessoa responsável."}), 400
+    empresa_val = _empresa_do_contrato(b.get("contrato_num"), b.get("empresa"))
     now = datetime.now().isoformat()
     with get_db() as conn:
         conn.execute("""
@@ -734,7 +751,7 @@ def api_update(id):
                 obra=?,cod=?,comp=?,provisao=?,medicao=?,pedido=?,nf=?,venc_nf=?,
                 retencao=?,impostos=?,status=?,obs=?,updated_at=?
             WHERE id=?
-        """, (b.get("empresa"), b.get("gestor"),
+        """, (empresa_val, b.get("gestor"),
               b.get("contrato_num"), b.get("contrato_nome"),
               b.get("obra"), b.get("cod"), b.get("comp"),
               b.get("provisao", 0), b.get("medicao") or None,
