@@ -681,10 +681,27 @@ def api_list():
         result.append(d)
     return jsonify(result)
 
+EMPRESAS_INVALIDAS_GESTOR = {
+    "ENERGY SERVIÇOS", "ENERGY SERVICOS", "ENERGY CONSTRUÇÕES", "ENERGY CONSTRUCOES",
+    "ENERGY SYSTEN", "ENERGYSYSTEN", "ENERGY", "ENERGY SERVIÇOS ESPECIALIZADOS"
+}
+
+def _validar_gestor(gestor):
+    if not gestor:
+        return gestor
+    g = str(gestor).strip().upper()
+    if g in EMPRESAS_INVALIDAS_GESTOR:
+        return None
+    return gestor
+
+
 @app.route("/api/medicoes", methods=["POST"])
 @login_required
 def api_create():
     b = request.json
+    gestor_val = _validar_gestor(b.get("gestor"))
+    if gestor_val is None:
+        return jsonify({"erro": f"Gestor inválido: '{b.get('gestor')}'. Informe o nome de uma pessoa responsável."}), 400
     now = datetime.now().isoformat()
     id_ = str(uuid.uuid4())
     with get_db() as conn:
@@ -706,6 +723,10 @@ def api_create():
 @login_required
 def api_update(id):
     b = request.json
+    if "gestor" in b:
+        gestor_val = _validar_gestor(b.get("gestor"))
+        if gestor_val is None:
+            return jsonify({"erro": f"Gestor inválido: '{b.get('gestor')}'. Informe o nome de uma pessoa responsável."}), 400
     now = datetime.now().isoformat()
     with get_db() as conn:
         conn.execute("""
