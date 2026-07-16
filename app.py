@@ -879,8 +879,10 @@ def api_folhas_sync():
     return jsonify({"ok": True, "inseridas": inseridas, "atualizadas": atualizadas})
 
 @app.route("/api/folhas")
-@login_required
 def api_folhas():
+    if not _check_admin_key():
+        if "user" not in session:
+            return redirect(url_for("login_page"))
     import json as _json
     data = _read_controle()
     resp_str = _json.dumps(data, ensure_ascii=False, allow_nan=False)
