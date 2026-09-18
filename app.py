@@ -874,6 +874,18 @@ def api_export_db():
     return send_file(DB_PATH, mimetype="application/octet-stream",
                      as_attachment=True, download_name="faturamento.db")
 
+@app.route("/api/export-seed-file", methods=["GET"])
+def api_export_seed_file():
+    api_key = request.headers.get("X-API-Key", "")
+    if not SYNC_API_KEY or api_key != SYNC_API_KEY:
+        return jsonify({"erro": "API key inválida"}), 403
+    _export_seed_to_disk()
+    seed_path = _DATA_DIR / "seed_data.json"
+    if not seed_path.exists():
+        return jsonify({"erro": "seed não encontrado"}), 404
+    return send_file(str(seed_path), mimetype="application/json",
+                     as_attachment=True, download_name="seed_data.json")
+
 @app.route("/api/folhas/sync", methods=["POST"])
 def api_folhas_sync():
     # Aceita autenticação por API key (para scripts externos) ou sessão web
