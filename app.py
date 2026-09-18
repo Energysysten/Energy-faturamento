@@ -785,7 +785,7 @@ def api_add_folha_link():
         ).fetchone()
         if folha_row and folha_row[0]:
             total_ja = conn.execute(
-                "SELECT COALESCE(SUM(valor),0) FROM medicao_folhas WHERE n_folha=?", (n_folha,)
+                "SELECT COALESCE(SUM(mf.valor),0) FROM medicao_folhas mf INNER JOIN medicoes m ON m.id=mf.medicao_id WHERE mf.n_folha=?", (n_folha,)
             ).fetchone()[0]
             if total_ja + valor > folha_row[0] + 0.01:
                 restante = folha_row[0] - total_ja
@@ -865,6 +865,14 @@ def api_update_contrato(num):
     return jsonify({"ok": True})
 
 SYNC_API_KEY = os.environ.get("SYNC_API_KEY", "")
+
+@app.route("/api/export-db", methods=["GET"])
+def api_export_db():
+    api_key = request.headers.get("X-API-Key", "")
+    if not SYNC_API_KEY or api_key != SYNC_API_KEY:
+        return jsonify({"erro": "API key inválida"}), 403
+    return send_file(DB_PATH, mimetype="application/octet-stream",
+                     as_attachment=True, download_name="faturamento.db")
 
 @app.route("/api/folhas/sync", methods=["POST"])
 def api_folhas_sync():
