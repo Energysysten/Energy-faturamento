@@ -874,6 +874,21 @@ def api_export_db():
     return send_file(DB_PATH, mimetype="application/octet-stream",
                      as_attachment=True, download_name="faturamento.db")
 
+@app.route("/api/export-sql-dump", methods=["GET"])
+def api_export_sql_dump():
+    api_key = request.headers.get("X-API-Key", "")
+    if not SYNC_API_KEY or api_key != SYNC_API_KEY:
+        return jsonify({"erro": "API key inválida"}), 403
+    import io, sqlite3 as _sq3
+    buf = io.BytesIO()
+    src = _sq3.connect(DB_PATH)
+    dump = "\n".join(src.iterdump())
+    src.close()
+    buf.write(dump.encode("utf-8"))
+    buf.seek(0)
+    return send_file(buf, mimetype="text/plain", as_attachment=True,
+                     download_name="faturamento_dump.sql")
+
 @app.route("/api/export-seed-file", methods=["GET"])
 def api_export_seed_file():
     api_key = request.headers.get("X-API-Key", "")
