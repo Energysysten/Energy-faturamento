@@ -39,7 +39,7 @@ from googleapiclient.discovery import build
 
 # ── Configuração ────────────────────────────────────────────────────────────
 BASE_DIR         = Path(__file__).parent
-ANEXOS_DIR       = BASE_DIR / "Anexos"
+ANEXOS_DIR       = Path(r"\\Zion2\financeiro\13 - FOLHAS_SISTEMAFATURAMENTO")
 PLANILHA         = BASE_DIR / "Controle_Medicoes.xlsx"
 CREDENTIALS      = BASE_DIR / "credentials.json"
 TOKEN            = BASE_DIR / "token.json"
