@@ -37,6 +37,10 @@ print(f"[STARTUP] DB_PATH = {DB_PATH}", flush=True)
 print(f"[STARTUP] /data existe = {_DATA_DIR.exists()}, gravável = {os.access(str(_DATA_DIR), os.W_OK) if _DATA_DIR.exists() else 'N/A'}", flush=True)
 print(f"[STARTUP] FAT_DB env = {os.environ.get('FAT_DB', '(não definido)')}", flush=True)
 
+# Filtro de empresa: quando definido, cada instância vê apenas seus dados
+EMPRESA_FILTER = os.environ.get("EMPRESA_FILTER", "")
+print(f"[STARTUP] EMPRESA_FILTER = {EMPRESA_FILTER or '(todas)'}", flush=True)
+
 CTRL_PATH   = os.environ.get("FAT_CTRL",   str(_BASE / "Controle_Medicoes.xlsx"))
 CREDS_PATH  = Path(os.environ.get("FAT_CREDS",  str(_BASE / "credentials.json")))
 TOKEN_ENVIO = Path(os.environ.get("FAT_TOKEN",   str(_BASE / "token_envio.json")))
@@ -228,6 +232,11 @@ def init_db():
             conn.execute("ALTER TABLE contratos ADD COLUMN empresa TEXT")
         except Exception:
             pass
+        # Migrar coluna empresa em usuarios
+        try:
+            conn.execute("ALTER TABLE usuarios ADD COLUMN empresa TEXT DEFAULT ''")
+        except Exception:
+            pass
         # Popular empresa nos contratos a partir das medicoes
         conn.execute("""
             UPDATE contratos SET empresa = (
@@ -258,10 +267,24 @@ def init_db():
 
 def _read_controle():
     if not Path(CTRL_PATH).exists():
-        # Render: ler do banco de dados
+        # Ler do banco de dados
         try:
             with get_db() as conn:
-                rows = conn.execute("SELECT * FROM folhas_recebidas ORDER BY data_recebimento DESC").fetchall()
+                if EMPRESA_FILTER:
+                    # Filtra folhas pelo contrato associado à empresa
+                    nums_empresa = [k for k, v in CONTRATO_EMPRESA.items() if v == EMPRESA_FILTER]
+                    if nums_empresa:
+                        placeholders = ",".join("?" * len(nums_empresa))
+                        rows = conn.execute(
+                            f"SELECT * FROM folhas_recebidas WHERE n_contrato IN ({placeholders})"
+                            " ORDER BY data_recebimento DESC", nums_empresa
+                        ).fetchall()
+                    else:
+                        rows = conn.execute(
+                            "SELECT * FROM folhas_recebidas ORDER BY data_recebimento DESC"
+                        ).fetchall()
+                else:
+                    rows = conn.execute("SELECT * FROM folhas_recebidas ORDER BY data_recebimento DESC").fetchall()
             return [dict(r) for r in rows]
         except Exception:
             return []
@@ -599,11 +622,17 @@ def login_page():
                 "SELECT * FROM usuarios WHERE username=? AND ativo=1", (u,)
             ).fetchone()
         if row and check_password_hash(row["password_hash"], p):
-            session["user"] = row["username"]
-            session["role"] = row["role"]
-            session["nome"] = row["nome"] or row["username"]
-            return redirect("/")
-        error = "Usuário ou senha inválidos."
+            # Bloqueia login se usuário pertence a outra empresa
+            user_empresa = (row["empresa"] if "empresa" in row.keys() else "") or ""
+            if EMPRESA_FILTER and user_empresa and user_empresa != EMPRESA_FILTER and row["role"] != "admin":
+                error = "Usuário ou senha inválidos."
+            else:
+                session["user"] = row["username"]
+                session["role"] = row["role"]
+                session["nome"] = row["nome"] or row["username"]
+                return redirect("/")
+        else:
+            error = "Usuário ou senha inválidos."
     return render_template("login.html", error=error)
 
 @app.route("/logout")
@@ -636,9 +665,15 @@ def folhas_page():
 @login_required
 def api_list():
     with get_db() as conn:
-        rows = conn.execute(
-            "SELECT * FROM medicoes WHERE delete_requested=0 ORDER BY comp DESC,contrato_num,obra"
-        ).fetchall()
+        if EMPRESA_FILTER:
+            rows = conn.execute(
+                "SELECT * FROM medicoes WHERE delete_requested=0 AND empresa=? ORDER BY comp DESC,contrato_num,obra",
+                (EMPRESA_FILTER,)
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT * FROM medicoes WHERE delete_requested=0 ORDER BY comp DESC,contrato_num,obra"
+            ).fetchall()
         links = conn.execute(
             "SELECT mf.id, mf.medicao_id, mf.n_folha, mf.valor, mf.periodo, mf.vinculado_em,"
             " COALESCE(NULLIF(mf.nf,''), fr.nf, '') AS nf"
@@ -852,7 +887,20 @@ def api_delete_request(id):
 @login_required
 def api_contratos():
     with get_db() as conn:
-        rows = conn.execute("SELECT * FROM contratos ORDER BY num").fetchall()
+        if EMPRESA_FILTER:
+            nums = [k for k, v in CONTRATO_EMPRESA.items() if v == EMPRESA_FILTER]
+            if nums:
+                placeholders = ",".join("?" * len(nums))
+                rows = conn.execute(
+                    f"SELECT * FROM contratos WHERE num IN ({placeholders}) ORDER BY num", nums
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    "SELECT c.* FROM contratos c INNER JOIN medicoes m ON m.contrato_num=c.num"
+                    " WHERE m.empresa=? GROUP BY c.num ORDER BY c.num", (EMPRESA_FILTER,)
+                ).fetchall()
+        else:
+            rows = conn.execute("SELECT * FROM contratos ORDER BY num").fetchall()
     return jsonify([dict(r) for r in rows])
 
 @app.route("/api/contratos/<num>", methods=["PUT"])
@@ -1594,7 +1642,9 @@ def api_provisoes_pendentes():
     nome = session.get("nome", session.get("user", ""))
 
     with get_db() as conn:
-        rows = conn.execute("""
+        empresa_clause = " AND m.empresa=?" if EMPRESA_FILTER else ""
+        params = (mes_limite, EMPRESA_FILTER) if EMPRESA_FILTER else (mes_limite,)
+        rows = conn.execute(f"""
             SELECT m.*,
                    (SELECT COALESCE(SUM(mf.valor),0) FROM medicao_folhas mf WHERE mf.medicao_id = m.id) AS vl_medido,
                    (SELECT COUNT(*) FROM medicao_folhas mf WHERE mf.medicao_id = m.id) AS n_folhas
@@ -1604,8 +1654,9 @@ def api_provisoes_pendentes():
               AND m.delete_requested = 0
               AND m.provisao > 0
               AND (m.status_prov IS NULL OR m.status_prov NOT IN ('realocada','cancelada','dispensada'))
+              {empresa_clause}
             ORDER BY m.gestor, m.comp DESC, m.contrato_num, m.obra
-        """, (mes_limite,)).fetchall()
+        """, params).fetchall()
 
     result = []
     for r in rows:
@@ -1833,14 +1884,17 @@ def api_dispensar_provisao():
 def api_historico_dispensadas():
     """Lista provisões dispensadas para histórico."""
     with get_db() as conn:
-        rows = conn.execute("""
+        empresa_clause = " AND empresa=?" if EMPRESA_FILTER else ""
+        params = (EMPRESA_FILTER,) if EMPRESA_FILTER else ()
+        rows = conn.execute(f"""
             SELECT gestor, obra, contrato_num, comp, provisao,
                    dispensado_por, dispensado_em
             FROM medicoes
             WHERE status_prov = 'dispensada'
+              {empresa_clause}
             ORDER BY dispensado_em DESC
             LIMIT 200
-        """).fetchall()
+        """, params).fetchall()
     return jsonify([dict(r) for r in rows])
 
 @app.route("/api/realocacoes")
@@ -1848,12 +1902,15 @@ def api_historico_dispensadas():
 def api_historico_realocacoes():
     """Histórico de realocações."""
     with get_db() as conn:
-        rows = conn.execute("""
+        empresa_clause = " WHERE m.empresa=?" if EMPRESA_FILTER else ""
+        params = (EMPRESA_FILTER,) if EMPRESA_FILTER else ()
+        rows = conn.execute(f"""
             SELECT r.*, m.obra, m.contrato_num, m.contrato_nome, m.gestor
             FROM realocacoes r
             LEFT JOIN medicoes m ON m.id = r.medicao_id_origem
+            {empresa_clause}
             ORDER BY r.aprovado_em DESC
-        """).fetchall()
+        """, params).fetchall()
     return jsonify([dict(r) for r in rows])
 
 @app.route("/api/heartbeat", methods=["POST"])
@@ -1887,9 +1944,16 @@ def api_list_usuarios():
     if session.get("role") != "admin":
         return jsonify({"erro": "Sem permissão"}), 403
     with get_db() as conn:
-        rows = conn.execute(
-            "SELECT id,username,nome,email,role,ativo,created_at FROM usuarios ORDER BY created_at"
-        ).fetchall()
+        if EMPRESA_FILTER:
+            rows = conn.execute(
+                "SELECT id,username,nome,email,role,ativo,created_at,empresa FROM usuarios"
+                " WHERE empresa=? OR empresa='' OR empresa IS NULL OR role='admin' ORDER BY created_at",
+                (EMPRESA_FILTER,)
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT id,username,nome,email,role,ativo,created_at,empresa FROM usuarios ORDER BY created_at"
+            ).fetchall()
     return jsonify([dict(r) for r in rows])
 
 @app.route("/api/usuarios", methods=["POST"])
