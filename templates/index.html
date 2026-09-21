@@ -558,6 +558,7 @@ tr:hover td{background:#fafafa}
           </select>
           <input type="text" id="fat-search" placeholder="Buscar folha, município..." oninput="renderFaturado()" style="width:190px">
           <button class="btn" onclick="loadFolhas();renderFaturado()">🔄 Atualizar</button>
+          <input id="nf-pasta" type="text" value="\\Zion2\financeiro\01 - CONTAS A RECEBER\01 - CONTAS A RECEBER\01 - NOTAS FISCAIS EMITIDAS\2026" style="width:320px;font-size:11px;font-family:monospace" title="Pasta de NFs">
           <button id="btn-escanear" class="btn primary" onclick="escanearNFsTab()" title="Escanear pasta de NFs">🔍 Escanear NFs</button>
         </div>
       </div>
@@ -991,10 +992,12 @@ async function preencherDatas(btn){
 }
 
 async function escanearNFsTab(){
+  const pasta=(document.getElementById('nf-pasta').value||'').trim();
   const btn=document.getElementById('btn-escanear');
   btn.disabled=true;btn.textContent='⏳ Escaneando...';
   try{
-    const r=await fetch('/api/escanear-nfs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({})});
+    const body=pasta?{pastas:[pasta]}:{};
+    const r=await fetch('/api/escanear-nfs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     const d=await r.json();
     if(d.erro){
       alert('❌ '+d.erro);
