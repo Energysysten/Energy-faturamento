@@ -38,8 +38,32 @@ print(f"[STARTUP] /data existe = {_DATA_DIR.exists()}, gravável = {os.access(st
 print(f"[STARTUP] FAT_DB env = {os.environ.get('FAT_DB', '(não definido)')}", flush=True)
 
 # Filtro de empresa: quando definido, cada instância vê apenas seus dados
-EMPRESA_FILTER = os.environ.get("EMPRESA_FILTER", "")
-print(f"[STARTUP] EMPRESA_FILTER = {EMPRESA_FILTER or '(todas)'}", flush=True)
+# Normaliza: remove acentos para compatibilidade com Windows (setx não preserva UTF-8)
+def _norm_empresa(s):
+    if not s:
+        return ""
+    s = s.upper().strip()
+    s = s.replace("Ç", "C").replace("ç", "c").replace("Ã", "A").replace("ã", "a")
+    s = s.replace("Õ", "O").replace("õ", "o").replace("É", "E").replace("é", "e")
+    s = s.replace("Ê", "E").replace("ê", "e").replace("Á", "A").replace("á", "a")
+    s = s.replace("Í", "I").replace("í", "i").replace("Ó", "O").replace("ó", "o")
+    s = s.replace("Ú", "U").replace("ú", "u").replace("Â", "A").replace("â", "a")
+    return s
+
+_EF_RAW = os.environ.get("EMPRESA_FILTER", "")
+EMPRESA_FILTER_KEY = _norm_empresa(_EF_RAW)   # chave normalizada (sem acento, upper)
+
+# Mapeia chave normalizada → valor exato no banco (medicoes.empresa)
+_EMPRESA_MAP = {
+    "ENERGY CONSTRUCOES": "ENERGY CONSTRUÇÕES",
+    "ENERGY SERVICOS":    "ENERGY SERVIÇOS",
+}
+# Valor exato para queries SQL no banco
+EMPRESA_FILTER_DB = _EMPRESA_MAP.get(EMPRESA_FILTER_KEY, _EF_RAW)
+# Valor exato para banco de usuários (sem acento, como foi gravado)
+EMPRESA_FILTER_USR = EMPRESA_FILTER_KEY  # usuarios.empresa está sem acento
+
+print(f"[STARTUP] EMPRESA_FILTER_KEY={EMPRESA_FILTER_KEY} DB={EMPRESA_FILTER_DB}", flush=True)
 
 CTRL_PATH   = os.environ.get("FAT_CTRL",   str(_BASE / "Controle_Medicoes.xlsx"))
 CREDS_PATH  = Path(os.environ.get("FAT_CREDS",  str(_BASE / "credentials.json")))
@@ -270,9 +294,9 @@ def _read_controle():
         # Ler do banco de dados
         try:
             with get_db() as conn:
-                if EMPRESA_FILTER:
+                if EMPRESA_FILTER_KEY:
                     # Filtra folhas pelo contrato associado à empresa
-                    nums_empresa = [k for k, v in CONTRATO_EMPRESA.items() if v == EMPRESA_FILTER]
+                    nums_empresa = [k for k, v in CONTRATO_EMPRESA.items() if _norm_empresa(v) == EMPRESA_FILTER_KEY]
                     if nums_empresa:
                         placeholders = ",".join("?" * len(nums_empresa))
                         rows = conn.execute(
@@ -624,7 +648,7 @@ def login_page():
         if row and check_password_hash(row["password_hash"], p):
             # Bloqueia login se usuário pertence a outra empresa
             user_empresa = (row["empresa"] if "empresa" in row.keys() else "") or ""
-            if EMPRESA_FILTER and user_empresa and user_empresa != EMPRESA_FILTER and row["role"] != "admin":
+            if EMPRESA_FILTER_KEY and user_empresa and _norm_empresa(user_empresa) != EMPRESA_FILTER_KEY and row["role"] != "admin":
                 error = "Usuário ou senha inválidos."
             else:
                 session["user"] = row["username"]
@@ -665,10 +689,10 @@ def folhas_page():
 @login_required
 def api_list():
     with get_db() as conn:
-        if EMPRESA_FILTER:
+        if EMPRESA_FILTER_KEY:
             rows = conn.execute(
                 "SELECT * FROM medicoes WHERE delete_requested=0 AND empresa=? ORDER BY comp DESC,contrato_num,obra",
-                (EMPRESA_FILTER,)
+                (EMPRESA_FILTER_DB,)
             ).fetchall()
         else:
             rows = conn.execute(
@@ -887,8 +911,8 @@ def api_delete_request(id):
 @login_required
 def api_contratos():
     with get_db() as conn:
-        if EMPRESA_FILTER:
-            nums = [k for k, v in CONTRATO_EMPRESA.items() if v == EMPRESA_FILTER]
+        if EMPRESA_FILTER_KEY:
+            nums = [k for k, v in CONTRATO_EMPRESA.items() if _norm_empresa(v) == EMPRESA_FILTER_KEY]
             if nums:
                 placeholders = ",".join("?" * len(nums))
                 rows = conn.execute(
@@ -897,7 +921,7 @@ def api_contratos():
             else:
                 rows = conn.execute(
                     "SELECT c.* FROM contratos c INNER JOIN medicoes m ON m.contrato_num=c.num"
-                    " WHERE m.empresa=? GROUP BY c.num ORDER BY c.num", (EMPRESA_FILTER,)
+                    " WHERE m.empresa=? GROUP BY c.num ORDER BY c.num", (EMPRESA_FILTER_DB,)
                 ).fetchall()
         else:
             rows = conn.execute("SELECT * FROM contratos ORDER BY num").fetchall()
@@ -1642,8 +1666,8 @@ def api_provisoes_pendentes():
     nome = session.get("nome", session.get("user", ""))
 
     with get_db() as conn:
-        empresa_clause = " AND m.empresa=?" if EMPRESA_FILTER else ""
-        params = (mes_limite, EMPRESA_FILTER) if EMPRESA_FILTER else (mes_limite,)
+        empresa_clause = " AND m.empresa=?" if EMPRESA_FILTER_KEY else ""
+        params = (mes_limite, EMPRESA_FILTER_DB) if EMPRESA_FILTER_KEY else (mes_limite,)
         rows = conn.execute(f"""
             SELECT m.*,
                    (SELECT COALESCE(SUM(mf.valor),0) FROM medicao_folhas mf WHERE mf.medicao_id = m.id) AS vl_medido,
@@ -1884,8 +1908,8 @@ def api_dispensar_provisao():
 def api_historico_dispensadas():
     """Lista provisões dispensadas para histórico."""
     with get_db() as conn:
-        empresa_clause = " AND empresa=?" if EMPRESA_FILTER else ""
-        params = (EMPRESA_FILTER,) if EMPRESA_FILTER else ()
+        empresa_clause = " AND empresa=?" if EMPRESA_FILTER_KEY else ""
+        params = (EMPRESA_FILTER_DB,) if EMPRESA_FILTER_KEY else ()
         rows = conn.execute(f"""
             SELECT gestor, obra, contrato_num, comp, provisao,
                    dispensado_por, dispensado_em
@@ -1902,8 +1926,8 @@ def api_historico_dispensadas():
 def api_historico_realocacoes():
     """Histórico de realocações."""
     with get_db() as conn:
-        empresa_clause = " WHERE m.empresa=?" if EMPRESA_FILTER else ""
-        params = (EMPRESA_FILTER,) if EMPRESA_FILTER else ()
+        empresa_clause = " WHERE m.empresa=?" if EMPRESA_FILTER_KEY else ""
+        params = (EMPRESA_FILTER_DB,) if EMPRESA_FILTER_KEY else ()
         rows = conn.execute(f"""
             SELECT r.*, m.obra, m.contrato_num, m.contrato_nome, m.gestor
             FROM realocacoes r
@@ -1944,11 +1968,11 @@ def api_list_usuarios():
     if session.get("role") != "admin":
         return jsonify({"erro": "Sem permissão"}), 403
     with get_db() as conn:
-        if EMPRESA_FILTER:
+        if EMPRESA_FILTER_KEY:
             rows = conn.execute(
                 "SELECT id,username,nome,email,role,ativo,created_at,empresa FROM usuarios"
                 " WHERE empresa=? OR empresa='' OR empresa IS NULL OR role='admin' ORDER BY created_at",
-                (EMPRESA_FILTER,)
+                (EMPRESA_FILTER_USR,)
             ).fetchall()
         else:
             rows = conn.execute(
