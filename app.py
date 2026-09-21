@@ -1058,14 +1058,12 @@ def api_escanear_nfs():
 
     b = request.json or {}
 
-    # Aceita lista de pastas ou pasta única
-    PASTAS_PADRAO = [
-        "/Volumes/FINANCEIRO/CONTAS A RECEBER/NOTAS FISCAIS EMITIDAS/2026/05 MAIO",
-        "/Volumes/ENERGY CONSTRUÇÕES/05- DEPARTAMENTO FINANCEIRO/01 - CONTAS A RECEBER/01 - NOTAS FISCAIS EMITIDAS/2026/05 - MAIO",
-    ]
+    # Pasta padrão configurável via env var ou body da requisição
+    NF_PASTA_ENV = os.environ.get("NF_PASTA", r"\\Zion2\financeiro\01 - CONTAS A RECEBER\01 - CONTAS A RECEBER\01 - NOTAS FISCAIS EMITIDAS\2026")
+    PASTAS_PADRAO = [NF_PASTA_ENV]
 
-    pastas_body = b.get("pastas", [])          # lista enviada pelo modal
-    pasta_extra  = b.get("pasta", "").strip()  # campo único legado
+    pastas_body = b.get("pastas", [])
+    pasta_extra  = b.get("pasta", "").strip()
 
     if pastas_body:
         PASTAS_PADRAO = [normalizar_pasta(p) for p in pastas_body if p.strip()]

@@ -990,37 +990,17 @@ async function preencherDatas(btn){
   finally{btn.disabled=false;btn.textContent='📅 Preencher datas';}
 }
 
-function escanearNFsTab(){
-  document.getElementById('modal-nf-scan').style.display='flex';
-}
-function fecharModalScan(){
-  document.getElementById('modal-nf-scan').style.display='none';
-}
-async function confirmarScan(){
-  const pastas=[
-    document.getElementById('scan-pasta1').value.trim(),
-    document.getElementById('scan-pasta2').value.trim()
-  ].filter(Boolean);
-  if(!pastas.length){alert('Informe ao menos um caminho.');return;}
-  fecharModalScan();
+async function escanearNFsTab(){
   const btn=document.getElementById('btn-escanear');
   btn.disabled=true;btn.textContent='⏳ Escaneando...';
   try{
-    const r=await fetch('/api/escanear-nfs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pastas})});
+    const r=await fetch('/api/escanear-nfs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({})});
     const d=await r.json();
     if(d.erro){
-      // Erro com diagnóstico detalhado
-      let msg='❌ '+d.erro;
-      if((d.pastas_erro||[]).length){
-        msg+='\n\nCaminhos tentados:\n  • '+d.pastas_erro.join('\n  • ');
-        msg+='\n\nDica: verifique se o compartilhamento está conectado no Finder\n(Menu Ir → Conectar ao Servidor → smb://192.168.1.10)';
-      }
-      alert(msg);
+      alert('❌ '+d.erro);
       return;
     }
-    const pastasOk=(d.pastas_ok||[]).map(p=>p.split('/').slice(-3).join('/')).join('\n  • ');
-    const pastasErro=(d.pastas_erro||[]).length?'\n\n⚠️ Não acessíveis:\n  • '+(d.pastas_erro||[]).map(p=>p.split('/').slice(-3).join('/')).join('\n  • '):'';
-    alert(`✅ Concluído!\n\n${d.atualizadas} folha(s) vinculada(s)\n${d.mapa_encontrado} arquivos lidos\n\nPastas:\n  • ${pastasOk}${pastasErro}`);
+    alert(`✅ Concluído!\n\n${d.atualizadas} folha(s) vinculada(s)\n${d.mapa_encontrado} NFs encontradas`);
     await load();renderFaturado();
   }catch(e){alert('Erro: '+e);}
   finally{btn.disabled=false;btn.textContent='🔍 Escanear NFs';}
@@ -3497,26 +3477,6 @@ async function nfVincularManual(idx, nf){
 }
 </script>
 <!-- Modal Escanear NFs -->
-<div id="modal-nf-scan" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:1000;align-items:center;justify-content:center">
-  <div style="background:#fff;border-radius:12px;padding:1.5rem;width:520px;max-width:95vw;box-shadow:0 8px 32px rgba(0,0,0,.18)">
-    <h2 style="font-size:16px;font-weight:700;margin-bottom:1rem">🔍 Escanear pastas de NFs</h2>
-    <p style="font-size:12px;color:#666;margin-bottom:1rem">Aceita caminhos <code>smb://</code> ou <code>/Volumes/...</code>. O servidor converte automaticamente. Certifique-se de que o compartilhamento está conectado no Finder antes de escanear.</p>
-    <div style="margin-bottom:.75rem">
-      <label style="font-size:12px;font-weight:600;color:#444;display:block;margin-bottom:4px">Pasta 1 — FINANCEIRO</label>
-      <input id="scan-pasta1" type="text" value="/Volumes/FINANCEIRO/CONTAS A RECEBER/NOTAS FISCAIS EMITIDAS/2026/05 MAIO"
-        style="width:100%;padding:8px 10px;font-size:11px;border:1px solid #ddd;border-radius:7px;outline:none;font-family:monospace">
-    </div>
-    <div style="margin-bottom:1.25rem">
-      <label style="font-size:12px;font-weight:600;color:#444;display:block;margin-bottom:4px">Pasta 2 — ENERGY CONSTRUÇÕES</label>
-      <input id="scan-pasta2" type="text" value="smb://192.168.1.10/ENERGY CONSTRUÇÕES/05- DEPARTAMENTO FINANCEIRO/01 - CONTAS A RECEBER/01 - NOTAS FISCAIS EMITIDAS/2026/05 - MAIO"
-        style="width:100%;padding:8px 10px;font-size:11px;border:1px solid #ddd;border-radius:7px;outline:none;font-family:monospace">
-    </div>
-    <div style="display:flex;justify-content:flex-end;gap:8px">
-      <button onclick="fecharModalScan()" style="padding:8px 16px;border:1px solid #ddd;border-radius:7px;background:#fff;cursor:pointer;font-size:13px">Cancelar</button>
-      <button onclick="confirmarScan()" style="padding:8px 16px;border:none;border-radius:7px;background:#185FA5;color:#fff;cursor:pointer;font-size:13px;font-weight:600">🔍 Escanear</button>
-    </div>
-  </div>
-</div>
 <!-- ══════════════════════════════════════════════════════════════════════════ -->
 <!-- OVERLAY: REALOCAÇÃO DE PROVISÕES                                         -->
 <!-- ══════════════════════════════════════════════════════════════════════════ -->
