@@ -15,5 +15,8 @@ if [ -z "$PYTHON" ]; then
     exit 1
 fi
 
+export RENDER_API_URL="https://energy-faturamento.onrender.com"
+export SYNC_API_KEY="AUhb-dxNfR_EX54EmMR_8UibP8Ttt8Ujl6Wi7kPxL2Q"
+
 cd "$PROJECT_DIR" && "$PYTHON" processar_medicoes.py >> "$LOG_FILE" 2>&1
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] Execução automática finalizada" >> "$LOG_FILE"

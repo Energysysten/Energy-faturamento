@@ -561,7 +561,10 @@ def main():
                     if not dados["folha"] or not dados["contrato"]:
                         log(f"  AVISO: não foi possível extrair folha/contrato de {pdf_path.name}")
                         continue
-                    if atualizar_planilha(dados, pdf_path.name, data_recebimento):
+                    if not PLANILHA.exists():
+                        sync_folha_render(dados, pdf_path.name, data_recebimento)
+                        processados += 1
+                    elif atualizar_planilha(dados, pdf_path.name, data_recebimento):
                         processados += 1
                         sync_folha_render(dados, pdf_path.name, data_recebimento)
                 except Exception as e:
@@ -576,7 +579,10 @@ def main():
                         continue
                     log(f"  {len(lista)} folha(s) encontrada(s) em {xls_path.name}")
                     for dados in lista:
-                        if atualizar_planilha(dados, xls_path.name, data_recebimento):
+                        if not PLANILHA.exists():
+                            sync_folha_render(dados, xls_path.name, data_recebimento)
+                            processados += 1
+                        elif atualizar_planilha(dados, xls_path.name, data_recebimento):
                             processados += 1
                             sync_folha_render(dados, xls_path.name, data_recebimento)
                 except Exception as e:
