@@ -333,12 +333,6 @@ tr:hover td{background:#fafafa}
   <!-- ══════════════════════════════════════════════════════════════════════ -->
   <div class="tab-pane active" id="tab-dashboard">
 
-    <!-- ── Filtro de empresa ─────────────────────────────────────────────── -->
-    <div class="empresa-bar">
-      <button class="emp-btn active-all" id="dash-emp-all"  onclick="setDashEmpresa('')">Todas</button>
-      <button class="emp-btn"            id="dash-emp-cons" onclick="setDashEmpresa('ENERGY CONSTRUÇÕES')">🏗 Energy Construções</button>
-      <button class="emp-btn"            id="dash-emp-serv" onclick="setDashEmpresa('ENERGY SERVIÇOS')">⚙️ Energy Serviços</button>
-    </div>
 
     <!-- ── Comparar com (só no dashboard) ─────────────────────────────────── -->
     <div id="dash-comp-wrap" style="display:none;background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:10px 16px;margin-bottom:14px">
@@ -431,11 +425,6 @@ tr:hover td{background:#fafafa}
           <select id="sel-comp" onchange="applyFilters()" style="font-weight:600;color:#185FA5">
             <option value="">Todas competências</option>
           </select>
-          <select id="sel-empresa" onchange="applyFilters()">
-            <option value="">Todas empresas</option>
-            <option value="ENERGY CONSTRUÇÕES">Energy Construções</option>
-            <option value="ENERGY SERVIÇOS">Energy Serviços</option>
-          </select>
           <select id="sel-gestor" onchange="applyFilters()">
             <option value="">Todos gestores</option>
           </select>
@@ -446,11 +435,6 @@ tr:hover td{background:#fafafa}
           <input type="file" id="file-import" accept=".xlsx" style="display:none" onchange="iniciarImport(event)">
           <a href="/api/exportar" class="btn">⬇ Exportar XLS</a>
         </div>
-      </div>
-      <div class="empresa-bar">
-        <button class="emp-btn active-all" id="prov-emp-all"  onclick="setProvEmpresa('')">Todas</button>
-        <button class="emp-btn"            id="prov-emp-cons" onclick="setProvEmpresa('ENERGY CONSTRUÇÕES')">🏗 Energy Construções</button>
-        <button class="emp-btn"            id="prov-emp-serv" onclick="setProvEmpresa('ENERGY SERVIÇOS')">⚙️ Energy Serviços</button>
       </div>
       <div class="filter-bar" id="filter-bar"></div>
       <div style="overflow-x:auto">
@@ -681,11 +665,6 @@ tr:hover td{background:#fafafa}
       <div class="section-header">
         <span class="section-title">Resumo por contrato</span>
         <div class="controls">
-          <select id="res-empresa" onchange="renderResumo()">
-            <option value="">Todas empresas</option>
-            <option value="ENERGY CONSTRUÇÕES">Energy Construções</option>
-            <option value="ENERGY SERVIÇOS">Energy Serviços</option>
-          </select>
           <select id="res-contrato" onchange="renderResumo()">
             <option value="">Todos contratos</option>
           </select>
@@ -697,11 +676,6 @@ tr:hover td{background:#fafafa}
       <div class="section-header">
         <span class="section-title">Visão mensal — por competência</span>
         <div class="controls">
-          <select id="men-empresa" onchange="renderMensal()">
-            <option value="">Todas empresas</option>
-            <option value="ENERGY CONSTRUÇÕES">Energy Construções</option>
-            <option value="ENERGY SERVIÇOS">Energy Serviços</option>
-          </select>
           <select id="men-contrato" onchange="renderMensal()">
             <option value="">Todos contratos</option>
           </select>
@@ -724,13 +698,12 @@ tr:hover td{background:#fafafa}
     <h2 id="modal-title">Nova provisão</h2>
 
     <!-- Linha 1: Empresa + Gestor -->
+    <select id="f-empresa" style="display:none" onchange="onModalEmpresaChange()">
+      <option value="ENERGY CONSTRUÇÕES">Energy Construções</option>
+      <option value="ENERGY SERVIÇOS">Energy Serviços</option>
+    </select>
     <div class="grid2">
-      <div class="field"><label>Empresa</label>
-        <select id="f-empresa" onchange="onModalEmpresaChange()">
-          <option value="ENERGY CONSTRUÇÕES">Energy Construções</option>
-          <option value="ENERGY SERVIÇOS">Energy Serviços</option>
-        </select>
-      </div>
+      <div class="field" style="display:none"></div>
       <div class="field"><label>Gestor</label>
         <select id="f-gestor"></select>
       </div>
@@ -1139,7 +1112,7 @@ function renderDashboard(){
   if(!data.length)return;
 
   // ── Filtro de empresa
-  const dataEmp=dashEmpresaSel?data.filter(i=>i.empresa===dashEmpresaSel):data;
+  const dataEmp=data;
 
   // ── Meses disponíveis
   const allComps=[...new Set(dataEmp.map(i=>i.comp).filter(Boolean))].sort();
@@ -1167,16 +1140,7 @@ function renderDashboard(){
   const btnLimpar=document.getElementById('btn-limpar-comp');
   if(btnLimpar) btnLimpar.style.display=compComp?'inline-flex':'none';
 
-  // ── Folhas filtradas por empresa (para não misturar EC/ES nos totais)
-  const folhasEmp=dashEmpresaSel
-    ?folhas.filter(f=>{
-        // folha vinculada a item da empresa selecionada → inclui
-        if(dataEmp.some(d=>(d.folhas_vinculadas||[]).some(l=>l.n_folha===f.n_folha)))return true;
-        // folha não vinculada → usa empresa do contrato
-        const s=saldos[f.n_contrato];
-        return s?s.empresa===dashEmpresaSel:false;
-      })
-    :folhas;
+  const folhasEmp=folhas;
 
   // ── Dados computados
   const cur=calcMes(dataEmp,folhasEmp,compSel);
@@ -1192,9 +1156,7 @@ function renderDashboard(){
   const totalFolhas=cur.folhas.reduce((a,f)=>a+Number(f.valor_total||0),0);
 
   // ── Números gerais (filtrados pelo mês selecionado)
-  const nCtrs=dashEmpresaSel
-    ?Object.values(saldos).filter(s=>s.empresa===dashEmpresaSel).length
-    :(Object.keys(saldos).length||[...new Set(dataEmp.map(i=>i.contrato_num).filter(Boolean))].length);
+  const nCtrs=Object.keys(saldos).length||[...new Set(dataEmp.map(i=>i.contrato_num).filter(Boolean))].length;
   const nObras=[...new Set(dataFil.map(i=>i.obra).filter(Boolean))].length;
   const rotulo=compSel?compLabel(compSel):'acumulado geral';
   document.getElementById('dash-geral').innerHTML=`
@@ -1498,7 +1460,7 @@ function onFolhaSelect(){
 
 function applyFilters(){
   const comp=document.getElementById('sel-comp').value;
-  const emp=document.getElementById('sel-empresa').value;
+  const emp='';
   const ges=document.getElementById('sel-gestor').value;
   const q=(document.getElementById('search').value||'').toLowerCase();
 
@@ -1524,24 +1486,8 @@ function applyFilters(){
 
 function setFilter(s){filterStatus=s;applyFilters();}
 
-function setProvEmpresa(val){
-  provEmpresaSel=val;
-  document.getElementById('sel-empresa').value=val;
-  document.querySelectorAll('#prov-emp-all,#prov-emp-cons,#prov-emp-serv').forEach(b=>b.className='emp-btn');
-  if(val==='') document.getElementById('prov-emp-all').classList.add('active-all');
-  else if(val==='ENERGY CONSTRUÇÕES') document.getElementById('prov-emp-cons').classList.add('active-cons');
-  else document.getElementById('prov-emp-serv').classList.add('active-serv');
-  applyFilters();
-}
-
-function setDashEmpresa(val){
-  dashEmpresaSel=val;
-  document.querySelectorAll('#dash-emp-all,#dash-emp-cons,#dash-emp-serv').forEach(b=>b.className='emp-btn');
-  if(val==='') document.getElementById('dash-emp-all').classList.add('active-all');
-  else if(val==='ENERGY CONSTRUÇÕES') document.getElementById('dash-emp-cons').classList.add('active-cons');
-  else document.getElementById('dash-emp-serv').classList.add('active-serv');
-  renderDashboard();
-}
+function setProvEmpresa(val){ applyFilters(); }
+function setDashEmpresa(val){ renderDashboard(); }
 
 function nfStatus(item){
   if(!['aprovado','nf_emitida'].includes(item.status))return null;
@@ -1751,9 +1697,8 @@ function renderFolhas(){
     const pct=f.valor_total>0?Math.min(100,Math.round(totalAlocado/f.valor_total*100)):0;
     const totalOk=pct>=100;
 
-    // Obras disponíveis para dropdown (mesmo contrato)
-    let obras=data.filter(d=>d.contrato_num===f.n_contrato&&d.comp===f.periodo);
-    if(!obras.length) obras=data.filter(d=>d.contrato_num===f.n_contrato);
+    // Obras disponíveis para dropdown (mesmo contrato, todos os períodos)
+    let obras=data.filter(d=>d.contrato_num===f.n_contrato);
 
     const obraOpts=obras.map(d=>`<option value="${d.id}">${escQ(d.obra||'')}</option>`).join('');
     const selHtml=obras.length
@@ -1874,7 +1819,7 @@ async function desvincularFolha(linkId){
 // ── Resumo por contrato ───────────────────────────────────────────────────
 
 function renderResumo(){
-  const empFil=document.getElementById('res-empresa').value;
+  const empFil='';
   const ctrFil=document.getElementById('res-contrato').value;
   const contratos={};
   // Inclui todos os contratos cadastrados, mesmo sem medições
@@ -1965,7 +1910,7 @@ function renderResumo(){
 // ── Visão mensal ──────────────────────────────────────────────────────────
 
 function renderMensal(){
-  const empFil=document.getElementById('men-empresa').value;
+  const empFil='';
   const ctrFil=document.getElementById('men-contrato').value;
   const modo=document.getElementById('men-modo').value;
   const selC=document.getElementById('men-contrato');
