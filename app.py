@@ -1070,6 +1070,17 @@ def api_escanear_nfs():
     elif pasta_extra:
         PASTAS_PADRAO = [normalizar_pasta(pasta_extra)]
 
+    # Conecta ao compartilhamento de rede se credenciais disponíveis
+    zion2_user = os.environ.get("ZION2_USER", "")
+    zion2_pass = os.environ.get("ZION2_PASS", "")
+    if zion2_user and zion2_pass:
+        import subprocess
+        share = r"\\Zion2\financeiro"
+        subprocess.run(
+            ["net", "use", share, f"/user:{zion2_user}", zion2_pass, "/persistent:no"],
+            capture_output=True
+        )
+
     # Montar mapa folha→NF varrendo todas as pastas disponíveis
     mapa = {}
     pastas_ok = []
