@@ -325,20 +325,15 @@ def _read_controle():
         ).str.strip()
         df["n_folha"]     = df["n_folha"].astype(str).str.strip()
         df["valor_total"] = pd.to_numeric(df["valor_total"], errors="coerce").fillna(0)
-        df["periodo_inicio"] = pd.to_datetime(df["periodo_inicio"], format="%d/%m/%Y", errors="coerce")
-        df["periodo"] = df["periodo_inicio"].dt.strftime("%Y-%m")
-
-        # Regra: período vazio → mês anterior à data de recebimento
+        # Regra: competência = data_recebimento − 30 dias
+        from dateutil.relativedelta import relativedelta
         df["data_recebimento_dt"] = pd.to_datetime(df["data_recebimento"], format="%d/%m/%Y", errors="coerce")
-        def periodo_fallback(row):
-            if str(row["periodo"]) not in ("", "nan", "NaT", "None"):
-                return row["periodo"]
-            if pd.notna(row["data_recebimento_dt"]):
-                from dateutil.relativedelta import relativedelta
-                mes_ant = row["data_recebimento_dt"] - relativedelta(months=1)
-                return mes_ant.strftime("%Y-%m")
-            return ""
-        df["periodo"] = df.apply(periodo_fallback, axis=1)
+        df["data_recebimento_dt"] = df["data_recebimento_dt"].fillna(
+            pd.to_datetime(df["data_recebimento"], errors="coerce")
+        )
+        df["periodo"] = df["data_recebimento_dt"].apply(
+            lambda d: (d - relativedelta(months=1)).strftime("%Y-%m") if pd.notna(d) else ""
+        )
 
         return [{
             "n_folha":          str(row["n_folha"]),

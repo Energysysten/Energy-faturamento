@@ -449,21 +449,16 @@ def sync_folha_render(dados: dict, nome_arquivo: str, data_recebimento: str):
     except Exception:
         data_iso = str(datetime.date.today())
 
-    # Constrói periodo no formato YYYY-MM
-    periodo = ""
+    # Período = data_recebimento − 30 dias
     try:
-        if dados.get("periodo_inicio"):
-            p = str(dados["periodo_inicio"])
-            if "/" in p:
-                parts = p.split("/")
-                if len(parts) == 3:
-                    periodo = f"{parts[2]}-{parts[1]}"
-                elif len(parts) == 2:
-                    periodo = f"{parts[1]}-{parts[0]}"
-            else:
-                periodo = p[:7]
+        import calendar as _cal
+        partes_rec = data_recebimento.split("/")
+        d = datetime.date(int(partes_rec[2]), int(partes_rec[1]), int(partes_rec[0]))
+        mes = d.month - 1 or 12
+        ano = d.year if d.month > 1 else d.year - 1
+        periodo = f"{ano}-{mes:02d}"
     except Exception:
-        pass
+        periodo = ""
 
     payload = json.dumps([{
         "n_folha": str(dados["folha"]),
