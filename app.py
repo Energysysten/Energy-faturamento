@@ -1076,24 +1076,8 @@ def api_escanear_nfs():
     pastas_erro = []
     for pasta in PASTAS_PADRAO:
         if not os.path.isdir(pasta):
-            # Tenta variações comuns de capitalização / sufixo de montagem
-            # macOS pode montar como "/Volumes/SHARE 1", "/Volumes/SHARE-1", etc.
-            encontrado = False
-            base_volumes = '/Volumes'
-            if pasta.startswith(base_volumes + '/'):
-                rest = pasta[len(base_volumes)+1:]
-                share = rest.split('/')[0]
-                sub   = rest[len(share):]  # tudo depois do share name
-                # Verifica variantes: SHARE, SHARE 1, SHARE-1
-                for suffix in ['', ' 1', ' 2', '-1', '_1']:
-                    candidato = f'{base_volumes}/{share}{suffix}{sub}'
-                    if os.path.isdir(candidato):
-                        pasta = candidato
-                        encontrado = True
-                        break
-            if not encontrado:
-                pastas_erro.append(pasta)
-                continue
+            pastas_erro.append(pasta)
+            continue
         pastas_ok.append(pasta)
         for root, dirs, files in os.walk(pasta):
             for fname in files:
@@ -1107,14 +1091,7 @@ def api_escanear_nfs():
                     mapa[m.group(2)] = m.group(1)
 
     if not mapa and not pastas_ok:
-        # Monta mensagem de diagnóstico
-        vols = []
-        if os.path.isdir('/Volumes'):
-            vols = os.listdir('/Volumes')
-        msg = "Nenhuma pasta encontrada. "
-        if vols:
-            msg += f"Volumes montados atualmente: {', '.join(vols)}. "
-        msg += "Verifique se o compartilhamento de rede está conectado no Finder."
+        msg = f"Nenhuma pasta encontrada. Verifique se o servidor Zion2 está acessível e o caminho correto: {', '.join(pastas_erro)}"
         return jsonify({"erro": msg, "pastas_erro": pastas_erro}), 400
 
     now = datetime.now().isoformat()
