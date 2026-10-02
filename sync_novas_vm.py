@@ -1,7 +1,3 @@
-"""
-Sincroniza folhas recebidas após 20/09/2026 no VM (localhost:8080).
-Rodar no VM: python sync_novas_vm.py
-"""
 import json, urllib.request
 
 API_URL = "http://localhost:8080"
@@ -15,7 +11,7 @@ for folha in FOLHAS:
     payload = json.dumps([folha]).encode("utf-8")
     try:
         req = urllib.request.Request(
-            f"{API_URL}/api/folhas/sync",
+            API_URL + "/api/folhas/sync",
             data=payload,
             headers={"Content-Type": "application/json", "X-API-Key": API_KEY},
             method="POST",
@@ -25,8 +21,7 @@ for folha in FOLHAS:
             enviadas += 1
     except Exception as e:
         erros += 1
-        print(f"  ERRO folha {folha['n_folha']}: {e}")
+        print("  ERRO folha " + str(folha["n_folha"]) + ": " + str(e))
 
-print(f"
-Concluido: {enviadas} enviadas, {erros} erros, {len(FOLHAS)} total.")
+print("Concluido: " + str(enviadas) + " enviadas, " + str(erros) + " erros, " + str(len(FOLHAS)) + " total.")
 input("Pressione Enter para fechar...")
