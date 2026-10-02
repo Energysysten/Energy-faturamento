@@ -10,3 +10,4 @@ __pycache__/
 cloudflared.log
 *.log
 publicar.sh
+backups/
