@@ -1680,12 +1680,22 @@ function renderFolhas(){
     const pct=f.valor_total>0?Math.min(100,Math.round(totalAlocado/f.valor_total*100)):0;
     const totalOk=pct>=100;
 
-    // Obras disponíveis para dropdown (mesmo contrato, todos os períodos)
-    let obras=data.filter(d=>d.contrato_num===f.n_contrato);
-
-    const obraOpts=obras.map(d=>`<option value="${d.id}">${escQ(d.obra||'')}</option>`).join('');
+    // Obras do mesmo contrato. O Medido soma pela competência da obra, então as da
+    // competência da folha vêm primeiro; as de outros meses ficam separadas e com o mês no nome.
+    const obras=data.filter(d=>d.contrato_num===f.n_contrato);
+    const compFolha=(f.periodo||'').substring(0,7);
+    const porNome=(a,b)=>(a.obra||'').localeCompare(b.obra||'');
+    const doMes=obras.filter(d=>d.comp===compFolha).sort(porNome);
+    const outros=obras.filter(d=>d.comp!==compFolha).sort((a,b)=>(b.comp||'').localeCompare(a.comp||'')||porNome(a,b));
+    const repetidos=new Set(doMes.map(d=>d.obra).filter((o,i,arr)=>arr.indexOf(o)!==i));
+    const optMes=doMes.map(d=>`<option value="${d.id}">${escQ(d.obra||'')}${repetidos.has(d.obra)?` — prov. R$ ${fmt(d.provisao||0)}`:''}</option>`).join('');
+    const optOutros=outros.map(d=>`<option value="${d.id}" data-comp="${d.comp||''}">${escQ(d.obra||'')} — ${compLabel(d.comp)}</option>`).join('');
     const selHtml=obras.length
-      ?`<select id="rateio-sel-${key}" style="width:100%;font-size:11px;padding:4px 6px;margin-bottom:3px"><option value="">-- Selecionar obra --</option>${obraOpts}</select>`
+      ?`<select id="rateio-sel-${key}" data-comp="${compFolha}" style="width:100%;font-size:11px;padding:4px 6px;margin-bottom:3px"><option value="">-- Selecionar obra --</option>`
+        +(doMes.length?`<optgroup label="${compLabel(compFolha)} (competência da folha)">${optMes}</optgroup>`:'')
+        +(outros.length?`<optgroup label="Outras competências — conta no mês da obra">${optOutros}</optgroup>`:'')
+        +`</select>`
+        +(doMes.length?'':`<div style="font-size:10px;color:#A32D2D;margin-bottom:3px">Nenhuma obra lançada em ${compLabel(compFolha)} para este contrato.</div>`)
       :`<span style="font-size:11px;color:#ccc">Sem obras para ${f.n_contrato}</span>`;
 
     // Painel de adicionar rateio (oculto por padrão, exceto se sem links)
@@ -1778,6 +1788,8 @@ async function vincularRateio(nFolha, key, periodo){
   const valor=parseFloat(inp?inp.value:0)||0;
   if(!obraId){toast('Selecione uma obra.');return;}
   if(valor<=0){toast('Informe um valor maior que zero.');return;}
+  const compObra=sel.selectedOptions[0]?.dataset.comp;
+  if(compObra&&!confirm(`Esta obra é da competência ${compLabel(compObra)}, mas a folha é de ${compLabel(sel.dataset.comp)}.\n\nO valor vai contar em ${compLabel(compObra)}. Continuar?`))return;
   await vincularInline(nFolha,obraId,valor,periodo);
 }
 
