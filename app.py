@@ -63,7 +63,11 @@ EMPRESA_FILTER_DB = _EMPRESA_MAP.get(EMPRESA_FILTER_KEY, _EF_RAW)
 # Valor exato para banco de usuários (sem acento, como foi gravado)
 EMPRESA_FILTER_USR = EMPRESA_FILTER_KEY  # usuarios.empresa está sem acento
 
-print(f"[STARTUP] EMPRESA_FILTER_KEY={EMPRESA_FILTER_KEY} DB={EMPRESA_FILTER_DB}", flush=True)
+# Filtro direto por número de contrato (tem precedência sobre EMPRESA_FILTER)
+_cf = os.environ.get("CONTRATOS_FILTER", "")
+CONTRATOS_FILTER = [c.strip() for c in _cf.split(",") if c.strip()] if _cf else []
+
+print(f"[STARTUP] EMPRESA_FILTER_KEY={EMPRESA_FILTER_KEY} DB={EMPRESA_FILTER_DB} CONTRATOS_FILTER={CONTRATOS_FILTER}", flush=True)
 
 CTRL_PATH   = os.environ.get("FAT_CTRL",   str(_BASE / "Controle_Medicoes.xlsx"))
 CREDS_PATH  = Path(os.environ.get("FAT_CREDS",  str(_BASE / "credentials.json")))
@@ -294,19 +298,20 @@ def _read_controle():
         # Ler do banco de dados
         try:
             with get_db() as conn:
-                if EMPRESA_FILTER_KEY:
-                    # Filtra folhas pelo contrato associado à empresa
-                    nums_empresa = [k for k, v in CONTRATO_EMPRESA.items() if _norm_empresa(v) == EMPRESA_FILTER_KEY]
-                    if nums_empresa:
-                        placeholders = ",".join("?" * len(nums_empresa))
-                        rows = conn.execute(
-                            f"SELECT * FROM folhas_recebidas WHERE n_contrato IN ({placeholders})"
-                            " ORDER BY data_recebimento DESC", nums_empresa
-                        ).fetchall()
-                    else:
-                        rows = conn.execute(
-                            "SELECT * FROM folhas_recebidas ORDER BY data_recebimento DESC"
-                        ).fetchall()
+                # Determina filtro de contratos: CONTRATOS_FILTER tem precedência sobre EMPRESA_FILTER
+                if CONTRATOS_FILTER:
+                    nums = CONTRATOS_FILTER
+                elif EMPRESA_FILTER_KEY:
+                    nums = [k for k, v in CONTRATO_EMPRESA.items() if _norm_empresa(v) == EMPRESA_FILTER_KEY]
+                else:
+                    nums = []
+
+                if nums:
+                    placeholders = ",".join("?" * len(nums))
+                    rows = conn.execute(
+                        f"SELECT * FROM folhas_recebidas WHERE n_contrato IN ({placeholders})"
+                        " ORDER BY data_recebimento DESC", nums
+                    ).fetchall()
                 else:
                     rows = conn.execute("SELECT * FROM folhas_recebidas ORDER BY data_recebimento DESC").fetchall()
             return [dict(r) for r in rows]
@@ -684,7 +689,13 @@ def folhas_page():
 @login_required
 def api_list():
     with get_db() as conn:
-        if EMPRESA_FILTER_KEY:
+        if CONTRATOS_FILTER:
+            placeholders = ",".join("?" * len(CONTRATOS_FILTER))
+            rows = conn.execute(
+                f"SELECT * FROM medicoes WHERE delete_requested=0 AND contrato_num IN ({placeholders}) ORDER BY comp DESC,contrato_num,obra",
+                CONTRATOS_FILTER
+            ).fetchall()
+        elif EMPRESA_FILTER_KEY:
             rows = conn.execute(
                 "SELECT * FROM medicoes WHERE delete_requested=0 AND empresa=? ORDER BY comp DESC,contrato_num,obra",
                 (EMPRESA_FILTER_DB,)
