@@ -2199,6 +2199,27 @@ def resetar_senha(token):
     return render_template("resetar_senha.html", invalido=False, erro=erro, token=token,
                            username=row["username"])
 
+@app.route("/api/admin/limpar-contratos", methods=["POST"])
+def api_limpar_contratos():
+    """Remove todos os dados de contratos fora da lista CONTRATOS_FILTER. Requer X-API-Key."""
+    key = request.headers.get("X-API-Key", "")
+    sync_key = os.environ.get("SYNC_API_KEY", "")
+    if not sync_key or key != sync_key:
+        return jsonify({"erro": "Não autorizado"}), 403
+    manter = request.json.get("manter", [])
+    if not manter:
+        return jsonify({"erro": "Lista 'manter' vazia"}), 400
+    placeholders = ",".join("?" * len(manter))
+    with get_db() as conn:
+        f = conn.execute(f"DELETE FROM folhas_recebidas WHERE n_contrato NOT IN ({placeholders})", manter).rowcount
+        mf = conn.execute(
+            f"DELETE FROM medicao_folhas WHERE n_folha NOT IN (SELECT n_folha FROM folhas_recebidas)", []
+        ).rowcount
+        m = conn.execute(f"DELETE FROM medicoes WHERE contrato_num NOT IN ({placeholders})", manter).rowcount
+        c = conn.execute(f"DELETE FROM contratos WHERE num NOT IN ({placeholders})", manter).rowcount
+    return jsonify({"folhas_removidas": f, "medicao_folhas_removidas": mf, "medicoes_removidas": m, "contratos_removidos": c})
+
+
 init_db()
 
 if __name__ == "__main__":
