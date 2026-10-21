@@ -1,0 +1,35 @@
+name: Processar Medições - Energy Serviços
+
+on:
+  schedule:
+    - cron: '0 11 * * 1-5'  # 08:00 horário de Brasília (UTC-3) = 11:00 UTC, seg-sex
+  workflow_dispatch:          # permite rodar manualmente
+
+jobs:
+  processar:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Instalar dependências
+        run: pip install google-auth-oauthlib google-auth-httplib2 google-api-python-client pdfplumber openpyxl python-dateutil
+
+      - name: Restaurar token Gmail
+        run: echo '${{ secrets.GMAIL_TOKEN_SERVICOS }}' > token.json
+
+      - name: Restaurar credentials
+        run: echo '${{ secrets.GMAIL_CREDENTIALS }}' > credentials.json
+
+      - name: Processar medições
+        env:
+          RENDER_API_URL: https://energy-faturamento.onrender.com
+          SYNC_API_KEY: ${{ secrets.SYNC_API_KEY }}
+          CONTRATOS_FILTER: "4600019416,4600019415,4600027599"
+        run: python processar_medicoes.py

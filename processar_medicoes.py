@@ -50,6 +50,10 @@ LABEL_PROCESSADO = "Medicao-Processada"
 RENDER_API_URL  = os.environ.get("RENDER_API_URL", "https://faturamento-9pbl.onrender.com")
 RENDER_API_KEY  = os.environ.get("SYNC_API_KEY", "")
 
+# Filtro de contratos: se definido, processa apenas esses contratos (separados por vírgula)
+_cf = os.environ.get("CONTRATOS_FILTER", "")
+CONTRATOS_FILTER = [c.strip() for c in _cf.split(",") if c.strip()] if _cf else []
+
 
 SCOPES = [
     "https://www.googleapis.com/auth/gmail.readonly",
@@ -556,6 +560,9 @@ def main():
                     if not dados["folha"] or not dados["contrato"]:
                         log(f"  AVISO: não foi possível extrair folha/contrato de {pdf_path.name}")
                         continue
+                    if CONTRATOS_FILTER and str(dados["contrato"]) not in CONTRATOS_FILTER:
+                        log(f"  Contrato {dados['contrato']} ignorado (fora do filtro).")
+                        continue
                     if not PLANILHA.exists():
                         sync_folha_render(dados, pdf_path.name, data_recebimento)
                         processados += 1
@@ -571,6 +578,10 @@ def main():
                     lista = extrair_dados_xls(xls_path)
                     if not lista:
                         log(f"  AVISO: nenhum dado extraído de {xls_path.name}")
+                        continue
+                    lista = [d for d in lista if not CONTRATOS_FILTER or str(d.get("contrato","")) in CONTRATOS_FILTER]
+                    if not lista:
+                        log(f"  Nenhuma folha do filtro em {xls_path.name}. Pulando.")
                         continue
                     log(f"  {len(lista)} folha(s) encontrada(s) em {xls_path.name}")
                     for dados in lista:
