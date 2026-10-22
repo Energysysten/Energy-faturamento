@@ -31,5 +31,5 @@ jobs:
         env:
           RENDER_API_URL: https://energy-faturamento.onrender.com
           SYNC_API_KEY: ${{ secrets.SYNC_API_KEY }}
-          CONTRATOS_FILTER: "4600019416,4600019415,4600027599"
+          CONTRATOS_FILTER: "4600019416,4600019415,4600027599,4600027590"
         run: python processar_medicoes.py
